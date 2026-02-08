@@ -747,7 +747,7 @@ class CorrelationExplorer {
         document.getElementById('downloadNetworkSVG').addEventListener('click', () => this.downloadNetworkSVG());
         document.getElementById('downloadAllData').addEventListener('click', () => this.downloadAllData());
 
-        // Color by stats controls (mutually exclusive with GE)
+        // Color by stats controls (mutually exclusive with Expr)
         document.getElementById('colorByStats').addEventListener('change', (e) => {
             if (e.target.checked) {
                 // Uncheck color by gene effect
@@ -2261,8 +2261,8 @@ class CorrelationExplorer {
         csv += `# Date: ${new Date().toISOString().slice(0, 10)}\n`;
         csv += '#\n';
 
-        const headers = ['Gene', 'N_WT', 'Mean_GE_WT', 'N_1+2', 'Mean_GE_1+2', 'Delta_GE', 'pValue_1+2_vs_0',
-                        'N_2', 'Mean_GE_2', 'Delta_GE_2vs0', 'pValue_2_vs_0'];
+        const headers = ['Gene', 'N_WT', 'Mean_Expr_WT', 'N_1+2', 'Mean_Expr_1+2', 'Delta_Expr', 'pValue_1+2_vs_0',
+                        'N_2', 'Mean_Expr_2', 'Delta_Expr_2vs0', 'pValue_2_vs_0'];
 
         csv += headers.join(',') + '\n';
         results.forEach(r => {
@@ -2888,8 +2888,8 @@ class CorrelationExplorer {
             if (isSynonym) {
                 titleLines.push(`(synonym of ${originalName})`);
             }
-            titleLines.push(`GE mean: ${cluster?.meanEffect || 'N/A'}`);
-            titleLines.push(`GE SD: ${cluster?.sdEffect || 'N/A'}`);
+            titleLines.push(`Expr mean: ${cluster?.meanEffect || 'N/A'}`);
+            titleLines.push(`Expr SD: ${cluster?.sdEffect || 'N/A'}`);
             if (geneStat?.lfc !== undefined && geneStat?.lfc !== null) {
                 titleLines.push(`LFC: ${geneStat.lfc.toFixed(3)}`);
             }
@@ -7404,11 +7404,11 @@ Results:
             thead.innerHTML = `<tr>
                 <th style="${headerStyle}" data-sort="group" data-type="string">Hotspot${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #2563eb;" data-sort="n0" data-type="number">n(0)${sortIcon}</th>
-                <th style="${headerStyle}" data-sort="mean0" data-type="number">GE(0)${sortIcon}</th>
+                <th style="${headerStyle}" data-sort="mean0" data-type="number">Expr(0)${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #f97316;" data-sort="n1" data-type="number">n(1)${sortIcon}</th>
-                <th style="${headerStyle}" data-sort="mean1" data-type="number">GE(1)${sortIcon}</th>
+                <th style="${headerStyle}" data-sort="mean1" data-type="number">Expr(1)${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #dc2626;" data-sort="n2" data-type="number">n(2)${sortIcon}</th>
-                <th style="${headerStyle}" data-sort="mean2" data-type="number">GE(2)${sortIcon}</th>
+                <th style="${headerStyle}" data-sort="mean2" data-type="number">Expr(2)${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #6b7280;" data-sort="diff" data-type="number">Δ Expr${sortIcon}</th>
                 <th style="${headerStyle}" data-sort="pValue" data-type="number">p-value${sortIcon}</th>
             </tr>`;
@@ -7485,7 +7485,7 @@ Results:
         // Helper to format stats annotation
         const formatStats = (stats, label) => {
             if (stats.n === 0) return `${label}: n=0`;
-            return `${label}: n=${stats.n}, GE=${stats.mean.toFixed(3)}, SD=${stats.sd.toFixed(3)}`;
+            return `${label}: n=${stats.n}, Expr=${stats.mean.toFixed(3)}, SD=${stats.sd.toFixed(3)}`;
         };
 
         if (mode === 'hotspot') {
@@ -7569,14 +7569,14 @@ Results:
             const pStr = !isNaN(pValue) ? (pValue < 0.001 ? pValue.toExponential(2) : pValue.toFixed(4)) : null;
 
             // Row 1: 0 (WT) stats
-            statsAnnotations.push(`0 (WT): n=${stats0.n}, GE=${stats0.mean.toFixed(3)}, SD=${stats0.sd.toFixed(3)}`);
+            statsAnnotations.push(`0 (WT): n=${stats0.n}, Expr=${stats0.mean.toFixed(3)}, SD=${stats0.sd.toFixed(3)}`);
             // Row 2: 1 mut stats
             if (stats1.n > 0) {
-                statsAnnotations.push(`1 mut: n=${stats1.n}, GE=${stats1.mean.toFixed(3)}${stats1.n > 1 ? `, SD=${stats1.sd.toFixed(3)}` : ''}`);
+                statsAnnotations.push(`1 mut: n=${stats1.n}, Expr=${stats1.mean.toFixed(3)}${stats1.n > 1 ? `, SD=${stats1.sd.toFixed(3)}` : ''}`);
             }
             // Row 3: 2 mut stats
             if (stats2.n > 0) {
-                statsAnnotations.push(`2 mut: n=${stats2.n}, GE=${stats2.mean.toFixed(3)}${stats2.n > 1 ? `, SD=${stats2.sd.toFixed(3)}` : ''}`);
+                statsAnnotations.push(`2 mut: n=${stats2.n}, Expr=${stats2.mean.toFixed(3)}${stats2.n > 1 ? `, SD=${stats2.sd.toFixed(3)}` : ''}`);
             }
             // Row 4: p-value
             if (pStr) {
@@ -7671,8 +7671,8 @@ Results:
 
         // Build stats as separate rows using <br> for proper line breaks
         const statsAnnotations = [];
-        statsAnnotations.push(`All cells: n=${allStats.n}, GE=${allStats.mean.toFixed(3)}, SD=${allStats.sd.toFixed(3)}`);
-        statsAnnotations.push(`${group}: n=${groupStats.n}, GE=${groupStats.mean.toFixed(3)}, SD=${groupStats.sd.toFixed(3)}`);
+        statsAnnotations.push(`All cells: n=${allStats.n}, Expr=${allStats.mean.toFixed(3)}, SD=${allStats.sd.toFixed(3)}`);
+        statsAnnotations.push(`${group}: n=${groupStats.n}, Expr=${groupStats.mean.toFixed(3)}, SD=${groupStats.sd.toFixed(3)}`);
         if (!isNaN(pValue)) {
             statsAnnotations.push(`p-value: ${pValue < 0.001 ? pValue.toExponential(2) : pValue.toFixed(4)}`);
         }
@@ -7810,12 +7810,12 @@ Results:
         let csv = '';
 
         if (this.currentGEView === 'tissue') {
-            csv = 'Cancer_Type,N,Mean_GE,SD,p_value\n';
+            csv = 'Cancer_Type,N,Mean_Expr,SD,p_value\n';
             this.currentGEStats.forEach(s => {
                 csv += `"${s.group}",${s.n},${s.mean.toFixed(4)},${s.sd.toFixed(4)},${s.pValue.toFixed(6)}\n`;
             });
         } else {
-            csv = 'Hotspot,N_Mutant,N_WT,Mean_WT,Mean_Mutant,Delta_GE,SD_Mutant,p_value\n';
+            csv = 'Hotspot,N_Mutant,N_WT,Mean_WT,Mean_Mutant,Delta_Expr,SD_Mutant,p_value\n';
             this.currentGEStats.forEach(s => {
                 csv += `"${s.group}",${s.nMut},${s.nWT},${s.wtMean.toFixed(4)},${s.mutMean.toFixed(4)},${s.diff.toFixed(4)},${s.mutSD.toFixed(4)},${s.pValue.toFixed(6)}\n`;
             });
