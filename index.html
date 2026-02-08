@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoExpress</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Roboto+Mono:wght@400;500&display=swap');
+
+        :root {
+            --green-900: #2d5a27;
+            --green-800: #3a7333;
+            --green-700: #4a8c3f;
+            --green-600: #5a9f4a;
+            --green-500: #6ab257;
+            --green-400: #8bc77a;
+            --green-300: #a8d89a;
+            --green-200: #c5e8bc;
+            --green-100: #e2f4de;
+            --green-50: #f0f9ef;
+            --gray-600: #4b5563;
+            --gray-500: #6b7280;
+            --gray-200: #e5e7eb;
+            --gray-100: #f3f4f6;
+            --brand-green: #5a9f4a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #ffffff;
+            min-height: 100vh;
+            color: #1f2937;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Logo Header - centered like Green Listed */
+        .logo-header {
+            text-align: center;
+            padding: 5px 20px 0 20px;
+            background: white;
+        }
+
+        .logo-header img {
+            max-width: 550px;
+            height: auto;
+        }
+
+        /* Footer */
+        .site-footer {
+            text-align: center;
+            padding: 18px 20px;
+            margin-top: 20px;
+            color: #333;
+            font-size: 15px;
+            font-weight: 400;
+            border-top: 1px solid #ddd;
+            background: #f5f5f5;
+        }
+
+        .site-footer a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .site-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Navigation bar - Green Listed style */
+        .nav-bar {
+            text-align: center;
+            padding: 0 20px 5px 20px;
+            background: white;
+            margin-bottom: 8px;
+        }
+
+        .nav-bar a {
+            color: #0055bb;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 17px;
+            font-weight: 500;
+        }
+
+        .nav-bar a:hover {
+            text-decoration: underline;
+        }
+
+        /* Main content area */
+        .main-content {
+            padding: 0 20px 20px 20px;
+        }
+
+        /* Layout - 4/8 column split like Shiny */
+        .container {
+            display: flex;
+            gap: 16px;
+            max-width: 1350px;
+            margin: 0 auto;
+            align-items: stretch;
+        }
+
+        .sidebar {
+            width: 415px;
+            min-width: 390px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-row {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .sidebar-card-half {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-card-half .card-content {
+            padding: 15px;
+            flex: 1;
+        }
+
+        .sidebar-card-half .form-group {
+            margin-bottom: 10px;
+        }
+
+        .sidebar-card-half .card-title {
+            font-size: 0.95em;
+            padding: 10px 15px;
+        }
+
+        .sidebar-card-half textarea.form-control {
+            min-height: 120px;
+            font-size: 0.85em;
+        }
+
+        .sidebar-card-half .radio-group label {
+            font-size: 0.85em;
+        }
+
+        .sidebar-card-half .form-label {
+            font-size: 0.85em;
+        }
+
+        /* Input method tabs */
+        .input-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 8px;
+        }
+
+        .input-tab {
+            padding: 4px 8px;
+            border: none;
+            background: transparent;
+            color: var(--gray-500);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .input-tab:hover {
+            background: var(--green-50);
+            color: var(--green-600);
+        }
+
+        .input-tab.active {
+            background: var(--green-600);
+            color: white;
+        }
+
+        .input-panel {
+            display: none;
+        }
+
+        .input-panel.active {
+            display: block;
+        }
+
+        .stats-sub-panel {
+            display: none;
+        }
+
+        .stats-sub-panel.active {
+            display: block;
+        }
+
+        .stats-sub-tab:hover {
+            background: #e2f4de !important;
+            color: #4a8c3f !important;
+        }
+
+        .stats-sub-tab.active {
+            background: #5a9f4a !important;
+            color: white !important;
+        }
+
+        .main-panel {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Cards - Green Listed style */
+        .card {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+            overflow: hidden;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 1.05em;
+            color: white;
+            background: #5a9f4a;
+            margin: 0;
+            padding: 12px 20px;
+            border-radius: 7px 7px 0 0;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        /* Buttons - exact Shiny match */
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--green-600);
+            color: white;
+        }
+
+        .btn-primary:hover, .btn-primary:focus {
+            background: var(--green-700);
+            box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: var(--green-600);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: var(--green-700);
+        }
+
+        /* Outline button style for downloads and secondary actions */
+        .btn-outline {
+            background: white;
+            border: 1px solid var(--green-600);
+            color: var(--green-700);
+        }
+
+        .btn-outline:hover {
+            background: var(--green-50);
+            border-color: var(--green-700);
+        }
+
+        .btn-secondary, .btn-default {
+            background: var(--gray-100);
+            border: 1px solid var(--gray-200);
+            color: var(--gray-600);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+        }
+
+        .btn-secondary.btn-active {
+            background: var(--green-100);
+            border-color: var(--green-500);
+            color: var(--green-700);
+        }
+
+        /* Clickable table rows */
+        .clickable-row:hover, .clickable-mut-row:hover {
+            background-color: var(--green-50) !important;
+        }
+
+        .clickable-row td:first-child, .clickable-mut-row td:first-child {
+            color: var(--green-700);
+        }
+
+        .clickable-row:hover td:first-child, .clickable-mut-row:hover td:first-child {
+            text-decoration: underline;
+        }
+
+        .btn-info {
+            background: var(--green-50);
+            border: 1px solid var(--green-500);
+            color: var(--green-700);
+        }
+
+        .btn-info:hover {
+            background: var(--green-100);
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-lg {
+            padding: 12px 24px;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        .btn-outline-primary {
+            background: transparent;
+            border: 1px solid var(--green-600);
+            color: var(--green-600);
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--green-50);
+        }
+
+        /* Form Controls - exact Shiny match */
+        .form-control, .selectize-input {
+            width: 100%;
+            border-radius: 6px;
+            border: 1px solid var(--gray-200);
+            padding: 8px 12px;
+            font-size: 0.95em;
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            border-color: var(--green-500);
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+            outline: none;
+        }
+
+        textarea.form-control {
+            font-family: 'Roboto Mono', monospace;
+            min-height: 180px;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+
+        select.form-control {
+            cursor: pointer;
+            background: white;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+            color: #374151;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .help-text, .help-block {
+            color: var(--gray-500);
+            font-size: 0.85em;
+            margin-top: 4px;
+        }
+
+        /* Radio buttons */
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 400;
+        }
+
+        .radio-group input[type="radio"] {
+            accent-color: var(--green-600);
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Sliders - Shiny IRS style */
+        .slider-container {
+            padding: 8px 0;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--gray-200);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--green-600);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--green-600);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .slider-value {
+            display: inline-block;
+            background: var(--green-600);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .button-row .btn {
+            flex: 1;
+        }
+
+        /* Tabs - exact Shiny nav-tabs match */
+        .nav-tabs {
+            border-bottom: 2px solid var(--gray-200);
+            display: flex;
+            gap: 2px;
+            margin-bottom: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .nav-tabs .nav-link {
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: var(--gray-500);
+            font-weight: 500;
+            font-size: 0.9em;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--green-600);
+            background: var(--green-50);
+        }
+
+        .nav-tabs .nav-link.active {
+            background: var(--green-600);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Status boxes - exact Shiny match */
+        .status-box {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.85em;
+        }
+
+        .status-success {
+            background: var(--green-50);
+            color: var(--green-800);
+            border-left: 3px solid var(--green-500);
+        }
+
+        .status-warning {
+            background: #fffbeb;
+            color: #92400e;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .status-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 3px solid #ef4444;
+        }
+
+        .status-info {
+            background: #eff6ff;
+            color: #1e40af;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .gene-count {
+            display: inline-block;
+            background: var(--green-600);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        /* DataTables styling - exact Shiny match */
+        .table-container {
+            max-height: 500px;
+            overflow: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .data-table thead th {
+            background: var(--green-50);
+            color: var(--green-800);
+            font-weight: 600;
+            padding: 10px 12px;
+            text-align: center;
+            border-bottom: 2px solid var(--green-200);
+            position: sticky;
+            top: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .data-table thead th:hover {
+            background: var(--green-100);
+        }
+
+        .data-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--gray-200);
+            text-align: center;
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--green-50);
+        }
+
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .table-search {
+            padding: 6px 10px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 14px;
+            width: 200px;
+        }
+
+        /* Network - exact Shiny visNetwork match */
+        .network-container {
+            height: 440px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            background: white;
+        }
+
+        /* New horizontal grid layout for network controls */
+        .network-controls-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding: 10px;
+            background: #f9fafb;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            align-items: start;
+        }
+
+        /* Make buttons in network controls smaller */
+        .network-controls-grid .btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .control-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .slider-group label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .slider-with-value {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--gray-500);
+            position: relative;
+        }
+
+        .slider-min, .slider-max {
+            font-size: 11px;
+            color: var(--gray-500);
+        }
+
+        .slider-bubble {
+            background: var(--green-600);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        .slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: var(--gray-500);
+            padding: 0 6px;
+            margin-top: -2px;
+        }
+
+        .slider-ticks span {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .slider-ticks span::before {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 8px;
+            background-color: #999;
+            margin-bottom: 2px;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            margin: 4px 0 0 0;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: linear-gradient(to right, var(--green-400), var(--green-200));
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--green-600);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .slider-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--green-600);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            accent-color: var(--green-600);
+            width: 16px;
+            height: 16px;
+        }
+
+        .radio-group-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .radio-group-inline label {
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .radio-group-inline input[type="radio"] {
+            accent-color: var(--green-600);
+            width: 12px;
+            height: 12px;
+        }
+
+        .button-group-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .button-group-vertical .btn {
+            width: 100%;
+        }
+
+        .button-group-horizontal {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-group-horizontal .btn {
+            flex: 1;
+        }
+
+        @media (max-width: 800px) {
+            .network-controls-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .network-controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .network-legend {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-top: 15px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            justify-content: center;
+        }
+
+        .legend-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .legend-section strong {
+            margin-bottom: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-line {
+            width: 25px;
+            height: 3px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        /* Tip box - Shiny style */
+        .tip-box {
+            background: var(--green-100);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--green-600);
+            font-size: 0.9em;
+        }
+
+        .tip-box strong {
+            color: var(--green-800);
+        }
+
+        /* Modal - matches Shiny modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 8px;
+            max-width: 1400px;
+            width: 100%;
+            max-height: calc(100vh - 40px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--green-50);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--green-800);
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray-500);
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--gray-600);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background: var(--gray-100);
+        }
+
+        /* Inspect modal layout */
+        .inspect-layout {
+            display: flex;
+            gap: 20px;
+        }
+
+        .inspect-controls {
+            width: 260px;
+            flex-shrink: 0;
+        }
+
+        .inspect-plot {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .control-box {
+            background: #f9fafb;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 12px;
+        }
+
+        .control-box-compact {
+            background: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 8px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .axis-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .axis-inputs > div {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .axis-inputs label {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .axis-inputs input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+            background: white;
+        }
+
+        .axis-inputs input:focus {
+            border-color: var(--green-500);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+        }
+
+        /* Summary text */
+        .summary-text {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+            line-height: 1.6;
+        }
+
+        /* Correlation colors */
+        .corr-positive { color: var(--green-700); font-weight: 600; }
+        .corr-negative { color: #dc2626; font-weight: 600; }
+
+        /* Gene effect difference colors */
+        .positive { color: #2563eb; } /* Blue for positive (less essential) */
+        .negative { color: #dc2626; } /* Red for negative (more essential) */
+
+        /* Inspect link in tables */
+        .inspect-link {
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .inspect-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--green-200);
+            border-top-color: var(--green-600);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: var(--gray-600);
+        }
+
+        /* Footer - exact Shiny match */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--gray-500);
+            font-size: 0.85em;
+            margin-top: 20px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .footer a {
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: 400;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                min-width: auto;
+            }
+            .inspect-layout {
+                flex-direction: column;
+            }
+            .inspect-controls {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Loading expression data...</div>
+    </div>
+
+    <!-- Logo Header -->
+    <div class="logo-header">
+        <img src="web_data/coexpress_logo.png" alt="CoExpress - a Gene Expression Correlation Tool">
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar">
+        <a href="#" id="showInfoGraphic">How it works</a>
+        <a href="https://fredrikwermeling.github.io/correlation-app/" target="_blank">Correlate</a>
+        <a href="https://greenlisted.cmm.se" target="_blank">Green Listed</a>
+        <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>
+        <a href="https://www.youtube.com/@fredrikwermeling1330" target="_blank">YouTube</a>
+    </div>
+
+    <div class="main-content">
+    <div class="container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <!-- Reference Data Card -->
+            <div class="card">
+                <div class="card-title">Reference Data</div>
+                <div class="card-content">
+                    <div id="referenceStatus" class="status-box status-warning">
+                        Loading data...
+                    </div>
+                    <div style="font-size: 10px; color: #666; margin-top: 8px; line-height: 1.4;">
+                        <p style="margin: 0;">Data from <a href="https://depmap.org/portal/data_page/?tab=currentRelease" target="_blank" style="color: #0066cc;">DepMap 25Q3</a>:</p>
+                        <ul style="margin: 4px 0 0 0; padding-left: 16px;">
+                            <li>OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv</li>
+                            <li>Model.csv</li>
+                            <li>OmicsSomaticMutationsMatrixHotspot.csv</li>
+                        </ul>
+                        <p style="margin: 6px 0 0 0; font-style: italic;"><a href="https://depmap.org/portal/data_page/?tab=overview#how-to-cite" target="_blank" style="color: #0066cc;">Please acknowledge DepMap</a> if you use this data.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two-column layout for Parameters and Input Genes -->
+            <div class="sidebar-row">
+                <!-- Parameters Card -->
+                <div class="card sidebar-card-half">
+                    <div class="card-title">1. Set Parameters</div>
+                    <div class="card-content">
+                    <div class="form-group">
+                        <label class="form-label">Analysis Mode:</label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="analysisMode" value="analysis" checked>
+                                Analysis (within input genes)
+                            </label>
+                            <label>
+                                <input type="radio" name="analysisMode" value="design">
+                                Design (all genes)
+                            </label>
+                            <label>
+                                <input type="radio" name="analysisMode" value="mutation">
+                                Mutation Analysis (differential Expr)
+                            </label>
+                            <label>
+                                <input type="radio" name="analysisMode" value="synonym">
+                                Synonym/Ortholog Lookup
+                            </label>
+                        </div>
+                        <div id="designExpandOption" style="display: none; margin-top: 6px; margin-left: 20px;">
+                            <label style="font-size: 11px; color: #4b5563;">
+                                <input type="checkbox" id="designExpandNetwork">
+                                Expand network (find correlations between discovered genes)
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 12px 0;">
+
+                    <div class="form-group" id="correlationParams">
+                        <label class="form-label">Correlation Cutoff: <span class="slider-value" id="cutoffValue">0.50</span></label>
+                        <input type="range" id="correlationCutoff" min="0.1" max="0.8" step="0.05" value="0.5">
+                    </div>
+
+                    <div class="form-group" id="slopeParams">
+                        <label class="form-label">Min Slope: <span class="slider-value" id="slopeValue">0.10</span></label>
+                        <input type="range" id="minSlope" min="0" max="2" step="0.05" value="0.1">
+                    </div>
+
+                    <div class="form-group" id="mutationHotspotGroup" style="display: none;">
+                        <label class="form-label" style="color: #5a9f4a; font-weight: 600;">Hotspot Mutation (required):</label>
+                        <select id="mutationHotspotSelect" class="form-control">
+                            <option value="">Select hotspot gene...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="minCellLinesGroup">
+                        <label class="form-label">Min Cell Lines:</label>
+                        <input type="number" id="minCellLines" class="form-control" value="50" min="3" max="500" style="width: 80px;">
+                    </div>
+
+                    <div class="form-group" id="pValueThresholdGroup" style="display: none;">
+                        <label class="form-label">P-value Threshold:</label>
+                        <input type="number" id="pValueThreshold" class="form-control" value="0.001" min="0.0001" max="1" step="0.001" style="width: 80px;">
+                    </div>
+
+                    <div class="form-group" id="lineageFilterGroup" style="display: none;">
+                        <label class="form-label">Lineage Filter:</label>
+                        <select id="lineageFilter" class="form-control">
+                            <option value="">All lineages</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="subLineageFilterGroup" style="display: none;">
+                        <label class="form-label">Subtype Filter:</label>
+                        <select id="subLineageFilter" class="form-control">
+                            <option value="">All subtypes</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="paramHotspotFilterGroup" style="display: none;">
+                        <label class="form-label">Hotspot Mutation Filter:</label>
+                        <select id="paramHotspotGene" class="form-control" style="margin-bottom: 4px;">
+                            <option value="">No filter</option>
+                        </select>
+                        <select id="paramHotspotLevel" class="form-control">
+                            <option value="all">All cells</option>
+                            <option value="0">Only WT (0 mutations)</option>
+                            <option value="1">Only 1 mutation</option>
+                            <option value="2">Only 2 mutations</option>
+                            <option value="1+2">Only mutated (1+2)</option>
+                        </select>
+                    </div>
+                    </div> <!-- end card-content -->
+                </div>
+
+                <!-- Gene Input Card -->
+                <div class="card sidebar-card-half" id="geneInputCard">
+                    <div class="card-title">2. Input Genes</div>
+                    <div class="card-content">
+                    <!-- Input method tabs -->
+                    <div class="input-tabs">
+                        <button class="input-tab active" data-input="paste">Paste/Type</button>
+                        <button class="input-tab" data-input="upload">With Stats</button>
+                    </div>
+
+                    <!-- Paste/Type panel -->
+                    <div class="input-panel active" id="input-paste">
+                        <div class="form-group">
+                            <label class="form-label">Gene symbols (one per line):</label>
+                            <div id="designModeHint" style="display: none; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; font-size: 11px; color: #92400e;">
+                                <strong>Design mode:</strong> Enter &lt; 20 genes for best results
+                            </div>
+                            <textarea id="geneTextarea" class="form-control" placeholder="TP53&#10;BRCA1&#10;MYC&#10;..." style="min-height: 180px;"></textarea>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-secondary btn-sm" id="clearGenes">Clear</button>
+                            <button class="btn btn-success btn-sm" id="loadTestGenes">Test Genes</button>
+                        </div>
+                    </div>
+
+                    <!-- With Stats panel -->
+                    <div class="input-panel" id="input-upload">
+                        <!-- Sub-tabs for manual entry vs file upload -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px;">
+                            <button class="stats-sub-tab active" data-stats-input="manual" style="padding: 3px 8px; font-size: 10px; border: none; background: #5a9f4a; color: white; border-radius: 3px; cursor: pointer;">Manual Entry</button>
+                            <button class="stats-sub-tab" data-stats-input="file" style="padding: 3px 8px; font-size: 10px; border: none; background: transparent; color: #6b7280; border-radius: 3px; cursor: pointer;">Upload File</button>
+                        </div>
+
+                        <!-- Manual entry sub-panel -->
+                        <div class="stats-sub-panel active" id="stats-manual">
+                            <div class="form-group">
+                                <label class="form-label">Enter Gene, LFC, FDR (tab or comma separated):</label>
+                                <textarea id="manualStatsTextarea" class="form-control" style="min-height: 140px; font-family: 'Roboto Mono', monospace; font-size: 11px;">Gene	LFC	FDR
+</textarea>
+                                <small style="color: #666; font-size: 10px;">Stats auto-loaded when you click Run</small>
+                            </div>
+                        </div>
+
+                        <!-- File upload sub-panel -->
+                        <div class="stats-sub-panel" id="stats-file" style="display: none;">
+                            <div class="form-group">
+                                <label class="form-label">Upload CSV/TSV:</label>
+                                <input type="file" id="statsFileInput" accept=".csv,.tsv,.txt,.tab" class="form-control" style="font-size: 11px; padding: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                                    <small style="color: #666; font-size: 10px;">Accepts CSV, TSV, or TXT</small>
+                                    <button class="btn btn-outline btn-sm" id="downloadSampleStats" title="Download sample file showing stats format" style="font-size: 10px; padding: 2px 6px;">Download Sample</button>
+                                </div>
+                            </div>
+                            <div id="statsColumnSelect" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">Gene column:</label>
+                                    <select id="statsGeneCol" class="form-control"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">LFC column (optional):</label>
+                                    <select id="statsLfcCol" class="form-control"><option value="">None</option></select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">FDR column (optional):</label>
+                                    <select id="statsFdrCol" class="form-control"><option value="">None</option></select>
+                                </div>
+                                <button class="btn btn-outline btn-sm" id="loadStatsBtn">Load Stats</button>
+                            </div>
+                        </div>
+
+                        <div class="button-row" style="margin-top: 8px;">
+                            <button class="btn btn-secondary btn-sm" id="clearStatsGenes">Clear</button>
+                            <button class="btn btn-success btn-sm" id="loadTestStats">Test Genes w/ Stats</button>
+                        </div>
+                    </div>
+
+                    <div id="geneCountDisplay" style="margin-top: 8px;"></div>
+                    <button class="btn btn-warning btn-sm" id="findSynonyms" style="display: none; margin-top: 8px;">
+                        Find Synonyms
+                    </button>
+
+                    <button class="btn btn-success" id="runAnalysis" disabled style="width: 100%; margin-top: 12px; font-size: 15px;">
+                        Run ▶
+                    </button>
+                    <div id="geneValidationDisplay" style="margin-top: 8px;"></div>
+                    <div id="analysisStatus"></div>
+                    </div> <!-- end card-content -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Panel -->
+        <div class="main-panel">
+            <div class="card" style="padding-bottom: 0;">
+                <div class="card-title">3. Results</div>
+                <div class="card-content" style="padding-bottom: 0;">
+                <ul class="nav-tabs">
+                    <li><button class="nav-link active" data-tab="network">Network</button></li>
+                    <li><button class="nav-link" data-tab="correlations">Correlations</button></li>
+                    <li><button class="nav-link" data-tab="clusters">Clusters</button></li>
+                    <li><button class="nav-link" data-tab="mutation" style="display: none;" id="mutationTab">Mutation Analysis</button></li>
+                    <li><button class="nav-link" data-tab="synonyms" style="display: none;" id="synonymsTab">Synonyms/Orthologs</button></li>
+                    <li><button class="nav-link" data-tab="summary">Summary</button></li>
+                </ul>
+
+                <!-- Network Tab -->
+                <div class="tab-content active" id="tab-network">
+                    <div class="network-controls-grid">
+                        <!-- Column 1: Sliders -->
+                        <div class="control-column">
+                            <div class="slider-group">
+                                <label>Font Size:</label>
+                                <div class="slider-with-value">
+                                    <span class="slider-min">10</span>
+                                    <span class="slider-bubble" id="fontSizeBubble">16</span>
+                                    <span class="slider-max">40</span>
+                                </div>
+                                <input type="range" id="netFontSize" min="10" max="40" value="16">
+                                <div class="slider-ticks">
+                                    <span>10</span><span>14</span><span>18</span><span>22</span><span>26</span><span>30</span><span>34</span><span>38</span><span>40</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label>Node Size:</label>
+                                <div class="slider-with-value">
+                                    <span class="slider-min">10</span>
+                                    <span class="slider-bubble" id="nodeSizeBubble">25</span>
+                                    <span class="slider-max">60</span>
+                                </div>
+                                <input type="range" id="netNodeSize" min="10" max="60" value="25">
+                                <div class="slider-ticks">
+                                    <span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label>Edge Width:</label>
+                                <div class="slider-with-value">
+                                    <span class="slider-min">1</span>
+                                    <span class="slider-bubble" id="edgeWidthBubble">3</span>
+                                    <span class="slider-max">10</span>
+                                </div>
+                                <input type="range" id="netEdgeWidth" min="1" max="10" value="3">
+                                <div class="slider-ticks">
+                                    <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Column 2: Gene Effect + Gene Statistics -->
+                        <div class="control-column control-box">
+                            <!-- Expression options (always shown) -->
+                            <div class="checkbox-group" style="margin-bottom: 4px;">
+                                <label><input type="checkbox" id="showGeneEffect"> Show expression (Expr) in label</label>
+                                <span id="showGESDGroup" style="margin-left: 8px; display: none;">
+                                    <label><input type="checkbox" id="showGeneEffectSD"> ± SD</label>
+                                </span>
+                            </div>
+                            <div class="checkbox-group" style="margin-bottom: 4px;">
+                                <label><input type="checkbox" id="colorByGeneEffect"> Color by Expr</label>
+                            </div>
+                            <div id="colorGEOptions" style="display: none; margin-left: 20px; margin-bottom: 4px;">
+                                <div class="radio-group-inline">
+                                    <label><input type="radio" name="colorGEType" value="signed" checked> Expr</label>
+                                    <label><input type="radio" name="colorGEType" value="absolute"> Absolute</label>
+                                </div>
+                            </div>
+                            <!-- Gene Statistics options (shown when stats loaded) -->
+                            <div id="statsControls" style="display: none; border-top: 1px solid #ddd; padding-top: 6px; margin-top: 4px;">
+                                <label style="font-weight: 600; font-size: 11px; margin-bottom: 4px; display: block;">Gene Statistics:</label>
+                                <div class="radio-group-inline" style="margin-bottom: 4px;">
+                                    <label><input type="radio" name="statsLabelDisplay" value="none" checked> None</label>
+                                    <label><input type="radio" name="statsLabelDisplay" value="lfc"> LFC</label>
+                                    <label><input type="radio" name="statsLabelDisplay" value="fdr"> FDR</label>
+                                </div>
+                                <div class="checkbox-group" style="margin-bottom: 4px;">
+                                    <label><input type="checkbox" id="colorByStats"> Color by stats</label>
+                                </div>
+                                <div id="colorStatsOptions" style="display: none; margin-left: 20px;">
+                                    <div class="radio-group-inline" style="margin-bottom: 4px;">
+                                        <label><input type="radio" name="colorStatType" value="signed_lfc" checked> LFC</label>
+                                        <label><input type="radio" name="colorStatType" value="abs_lfc"> Absolute LFC</label>
+                                        <label><input type="radio" name="colorStatType" value="fdr"> FDR</label>
+                                    </div>
+                                    <label style="font-weight: 600; font-size: 10px;">Scale:</label>
+                                    <div class="radio-group-inline">
+                                        <label><input type="radio" name="colorScale" value="all" checked> All genes</label>
+                                        <label><input type="radio" name="colorScale" value="network"> Network only</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Column 3: View Controls + Export -->
+                        <div class="control-column control-box">
+                            <label style="font-weight: 600; margin-bottom: 4px; display: block;">View Controls:</label>
+                            <div class="button-group-horizontal" style="margin-bottom: 4px;">
+                                <button class="btn btn-secondary" id="fitNetwork">Fit</button>
+                                <button class="btn btn-secondary" id="showHiddenNodes">Show Hidden</button>
+                                <button class="btn btn-secondary" id="toggleRemoveMode">Remove Mode</button>
+                                <button class="btn btn-secondary" id="togglePhysics">Lock</button>
+                                <button class="btn btn-secondary" id="changeLayout">Layout</button>
+                            </div>
+                            <p class="help-text" id="networkHelpText" style="font-size: 9px; margin-bottom: 6px;">Double-click node for Expression, edge for Correlation</p>
+                            <div id="removedNodesList" style="display: none; font-size: 9px; margin-bottom: 6px; padding: 4px; background: #fef3c7; border-radius: 3px;">
+                                <span style="font-weight: 600;">Removed:</span> <span id="removedNodesText"></span>
+                                <button class="btn btn-sm" id="restoreAllNodes" style="padding: 1px 4px; font-size: 8px; margin-left: 4px;">Restore All</button>
+                            </div>
+                            <label style="font-weight: 600; margin-bottom: 4px; display: block;">Export:</label>
+                            <div class="button-group-horizontal">
+                                <button class="btn btn-secondary" id="downloadNetworkPNG">PNG</button>
+                                <button class="btn btn-secondary" id="downloadNetworkSVG">SVG</button>
+                                <button class="btn btn-info" id="downloadAllData">All Data (ZIP)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="network-container" id="networkPlot">
+                        <div style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; height: 100%; padding-top: 12%; color: var(--gray-500); text-align: center; line-height: 1.8;">
+                            <div>New to CoExpress?</div>
+                            <div style="margin-top: 8px;">Click <span style="color: #5a9f4a; font-weight: 600;">Test Genes</span> and then <span style="color: #5a9f4a; font-weight: 600;">Run ▶</span></div>
+                            <div style="font-size: 0.9em;">(both in "2. Input Genes")</div>
+                        </div>
+                    </div>
+
+                    <div class="network-legend" id="networkLegend" style="display: none;">
+                        <div class="legend-section">
+                            <strong>Correlation:</strong>
+                            <div class="legend-item"><span class="legend-line" style="background: #3182ce;"></span> Positive</div>
+                            <div class="legend-item"><span class="legend-line" style="background: #e53e3e;"></span> Negative</div>
+                        </div>
+                        <div class="legend-section" id="legendEdgeThickness">
+                            <strong>Edge Thickness:</strong>
+                            <div class="legend-item"><span class="legend-line" style="background: #666; height: 1px;"></span> r=0.5</div>
+                            <div class="legend-item"><span class="legend-line" style="background: #666; height: 4px;"></span> r=0.7</div>
+                            <div class="legend-item"><span class="legend-line" style="background: #666; height: 8px;"></span> r=1.0</div>
+                        </div>
+                        <div class="legend-section" id="legendNodeColor" style="display: none;">
+                            <strong>Node color:</strong>
+                            <div id="nodeColorLegendContent"></div>
+                        </div>
+                        <div class="legend-section" id="legendNodeType" style="display: none;">
+                            <strong>Node Type:</strong>
+                            <div class="legend-item"><span class="legend-dot" style="background: #5a9f4a;"></span> Input gene</div>
+                            <div class="legend-item"><span class="legend-dot" style="background: #a8d89a;"></span> Correlated gene</div>
+                        </div>
+                        <div class="legend-section" id="legendSynonym" style="display: none;">
+                            <strong>*</strong> = synonym/orthologue used
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Correlations Tab -->
+                <div class="tab-content" id="tab-correlations">
+                    <div class="tip-box">
+                        <strong>Tip:</strong> Click <strong>Correlate</strong> to view a scatter plot, or <strong>By Tissue</strong> for tissue breakdown. You can adjust axis ranges, highlight specific cell lines, and download as PNG or CSV.
+                    </div>
+                    <div class="table-controls">
+                        <input type="text" class="table-search" id="correlationsSearch" placeholder="Search...">
+                        <button class="btn btn-outline btn-sm" id="downloadCorrelations">Download CSV</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table" id="correlationsTable">
+                            <thead>
+                                <tr>
+                                    <th data-sort="gene1">Gene1</th>
+                                    <th data-sort="gene2">Gene2</th>
+                                    <th data-sort="correlation">Correlation</th>
+                                    <th data-sort="slope">Slope</th>
+                                    <th data-sort="n">N</th>
+                                    <th data-sort="cluster">Cluster</th>
+                                    <th>Analyze</th>
+                                </tr>
+                            </thead>
+                            <tbody id="correlationsBody">
+                                <tr><td colspan="7" style="text-align: center; color: var(--gray-500); padding: 40px;">Run analysis to view correlations</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Clusters Tab -->
+                <div class="tab-content" id="tab-clusters">
+                    <div id="clustersFilterInfo" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; display: none;">
+                        <strong>Filters:</strong> <span id="clustersFilterText"></span>
+                    </div>
+                    <p class="help-text" style="margin-bottom: 15px;">Mean (All) = all cells, Mean (Filt) = filtered cells. * indicates genes from your input list (Design mode).</p>
+                    <div class="table-controls">
+                        <input type="text" class="table-search" id="clustersSearch" placeholder="Search...">
+                        <button class="btn btn-outline btn-sm" id="downloadClusters">Download CSV</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table" id="clustersTable">
+                            <thead id="clustersHead">
+                                <tr>
+                                    <th data-sort="gene">Gene</th>
+                                    <th data-sort="cluster">Cluster</th>
+                                    <th data-sort="meanEffect">Mean Effect</th>
+                                    <th data-sort="sdEffect">SD</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clustersBody">
+                                <tr><td colspan="4" style="text-align: center; color: var(--gray-500); padding: 40px;">Run analysis to view clusters</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Mutation Analysis Tab -->
+                <div class="tab-content" id="tab-mutation">
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: #92400e;">
+                        <strong>Note:</strong> Differential expression may reflect selection bias (e.g., mutations enriched in certain cancer types) rather than direct functional consequences of the mutation. Consider filtering by lineage to control for tissue-specific effects.
+                    </div>
+                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: #0c4a6e;">
+                        <strong>Statistics:</strong> p-values are calculated using Welch's t-test comparing expression levels between wild-type (WT, 0 mutations) and mutated cells (1+2 or 2 mutations). Δ Expr = Mean(mutated) − Mean(WT).
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div>
+                            <span id="mutationResultsCount">0 genes with p < 0.001</span>
+                        </div>
+                        <div>
+                            <input type="text" id="mutationSearch" class="form-control" placeholder="Search genes..." style="width: 200px; display: inline-block; margin-right: 10px;">
+                            <button class="btn btn-outline btn-sm" id="downloadMutationResults">Export CSV</button>
+                        </div>
+                    </div>
+                    <div class="table-container" style="max-height: 600px; overflow-y: auto;">
+                        <table class="data-table" id="mutationTable">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="gene">Gene ▼</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="n_wt" style="border-left: 2px solid #2563eb;">N (WT)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="mean_wt">Mean Expr (WT)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="n_mut" style="border-left: 2px solid #f97316;">N (1+2)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="mean_mut">Mean Expr (1+2)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="diff_mut">Δ Expr</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="p_mut">p-value</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="n_2" style="border-left: 2px solid #dc2626;">N (2)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="mean_2">Mean Expr (2)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="diff_2">Δ Expr (2v0)</th>
+                                    <th onclick="app.sortMutationTable(this)" data-col="p_2">p-value (2v0)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mutationTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Synonyms/Orthologs Tab -->
+                <div class="tab-content" id="tab-synonyms">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <input type="text" id="synonymsSearch" class="form-control" placeholder="Search genes..." style="width: 200px; display: inline-block; margin-right: 10px;">
+                        </div>
+                        <button class="btn btn-outline btn-sm" id="downloadSynonyms">Export CSV</button>
+                    </div>
+                    <p class="help-text" id="synonymsHelpText" style="margin-bottom: 10px; font-size: 11px;">
+                        <strong>Low Risk:</strong> Exact synonyms from HGNC. <strong>Mid Risk:</strong> Less certain synonyms. <strong>Orthologs:</strong> Mouse-to-human gene mappings.
+                    </p>
+                    <div class="table-container" style="max-height: 600px; overflow-y: auto;">
+                        <table class="data-table" id="synonymsTable">
+                            <thead>
+                                <tr>
+                                    <th>Input Gene</th>
+                                    <th>Status</th>
+                                    <th>Official Symbol</th>
+                                    <th style="border-left: 2px solid #16a34a;">Low Risk Synonyms</th>
+                                    <th style="border-left: 2px solid #f59e0b;">Mid Risk Synonyms</th>
+                                    <th style="border-left: 2px solid #6366f1;">Orthologs (Mouse→Human)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="synonymsTableBody">
+                                <tr><td colspan="6" style="padding: 40px; color: var(--gray-500);">Select "Synonym/Ortholog Lookup" mode and click Run</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Summary Tab -->
+                <div class="tab-content" id="tab-summary">
+                    <button class="btn btn-outline btn-sm" id="downloadSummary" style="margin-bottom: 15px;">Download Summary</button>
+                    <div class="summary-text" id="summaryText">Run analysis to view summary</div>
+                </div>
+                </div> <!-- end card-content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer - funding acknowledgment -->
+    <div class="site-footer">
+        Financially supported by the <a href="https://www.cancerfonden.se/om-oss/about" target="_blank">Swedish Cancer Society</a>, the <a href="https://www.vr.se/english.html" target="_blank">Swedish Research Council</a>, and <a href="https://ki.se/en" target="_blank">Karolinska Institutet</a>.
+    </div>
+    </div> <!-- end main-content -->
+
+    <!-- Inspect Modal -->
+    <div class="modal-overlay" id="inspectModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="inspectTitle">Correlation: Gene1 vs Gene2</h3>
+                <button class="modal-close" id="closeInspect">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="inspect-layout">
+                    <div class="inspect-controls">
+                        <!-- Gene Selection -->
+                        <div class="control-box-compact">
+                            <span class="control-label">Genes (X / Y axis)</span>
+                            <div style="display: flex; gap: 6px;">
+                                <input type="text" id="inspectGeneX" class="form-control" style="flex: 1; font-size: 12px;" placeholder="X gene">
+                                <input type="text" id="inspectGeneY" class="form-control" style="flex: 1; font-size: 12px;" placeholder="Y gene">
+                            </div>
+                            <button class="btn btn-outline btn-sm" id="updateInspectGenes" style="width: 100%; margin-top: 6px;">Update Genes</button>
+                        </div>
+
+                        <!-- Axis Ranges -->
+                        <div class="control-box-compact">
+                            <span class="control-label">Axis Ranges</span>
+                            <div class="axis-inputs">
+                                <div>
+                                    <label>X min</label>
+                                    <input type="number" id="scatterXmin" step="0.1">
+                                </div>
+                                <div>
+                                    <label>X max</label>
+                                    <input type="number" id="scatterXmax" step="0.1">
+                                </div>
+                                <div>
+                                    <label>Y min</label>
+                                    <input type="number" id="scatterYmin" step="0.1">
+                                </div>
+                                <div>
+                                    <label>Y max</label>
+                                    <input type="number" id="scatterYmax" step="0.1">
+                                </div>
+                            </div>
+                            <button class="btn btn-outline btn-sm" id="resetAxes" style="width: 100%; margin-top: 8px;">Reset</button>
+                        </div>
+
+                        <!-- Aspect Ratio -->
+                        <div class="control-box-compact">
+                            <span class="control-label">Y/X Ratio</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="aspectRatio" min="0.3" max="3" step="0.1" value="1" style="flex: 1;">
+                                <span id="aspectRatioValue" style="font-size: 12px; min-width: 40px;">1.0</span>
+                            </div>
+                        </div>
+
+                        <!-- Filter by Cancer Type -->
+                        <div class="control-box-compact" id="cancerFilterBox" style="display: none;">
+                            <span class="control-label">Filter by Cancer Type</span>
+                            <select id="scatterCancerFilter" class="form-control">
+                                <option value="">All cancer types</option>
+                            </select>
+                            <select id="scatterSubtypeFilter" class="form-control" style="margin-top: 4px; display: none;">
+                                <option value="">All subtypes</option>
+                            </select>
+                        </div>
+
+                        <!-- Filter by Hotspot Mutation -->
+                        <div class="control-box-compact" id="mutationFilterBox" style="display: none;">
+                            <span class="control-label">Filter by Hotspot Mutation</span>
+                            <select id="mutationFilterGene" class="form-control">
+                                <option value="">No filter</option>
+                            </select>
+                            <select id="mutationFilterLevel" class="form-control" style="margin-top: 4px;">
+                                <option value="all">All cells</option>
+                                <option value="0">Only WT (0 mutations)</option>
+                                <option value="1">Only 1 mutation</option>
+                                <option value="2">Only 2 mutations</option>
+                                <option value="1+2">Only mutated (1+2)</option>
+                            </select>
+                        </div>
+
+                        <!-- Compare All Buttons -->
+                        <div class="control-box-compact">
+                            <button class="btn btn-secondary btn-sm" id="compareAllCancerTypesBtn" style="width: 100%;">Compare All Cancer Types</button>
+                            <button class="btn btn-secondary btn-sm" id="compareAllMutationsBtn" style="width: 100%; margin-top: 4px;">Compare All Mutations</button>
+                            <p style="font-size: 10px; color: #666; margin: 4px 0 0 0;">Stratify correlation by cancer type or mutation</p>
+                        </div>
+
+                        <!-- Reset Filters -->
+                        <div class="control-box-compact">
+                            <button class="btn btn-outline btn-sm" id="resetAllFilters" style="width: 100%;">Reset Filters</button>
+                        </div>
+
+                        <!-- Highlight Cell Lines -->
+                        <div class="control-box-compact">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="control-label" style="margin-bottom: 0;">Highlight Cell Lines</span>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <span style="font-size: 11px; color: #666;">Font</span>
+                                    <input type="number" id="scatterFontSize" value="3" min="1" max="10" style="width: 45px; padding: 2px 4px; font-size: 11px; text-align: center;">
+                                </div>
+                            </div>
+                            <textarea id="scatterCellSearch" class="form-control" style="min-height: 40px; font-size: 12px; margin-top: 6px;" placeholder="Type names or click plot..."></textarea>
+                            <button class="btn btn-secondary btn-sm" id="clearHighlights" style="margin-top: 4px;">Clear All</button>
+                        </div>
+
+                        <!-- Mutation Overlay -->
+                        <div class="control-box" id="mutationBox">
+                            <span class="control-label">Hotspot Mutation Overlay</span>
+                            <select id="hotspotGene" class="form-control">
+                                <option value="">Select gene...</option>
+                            </select>
+                            <select id="hotspotMode" class="form-control" style="margin-top: 6px;">
+                                <option value="none">None</option>
+                                <option value="color" selected>Color by mutation (0/1/2)</option>
+                                <option value="three_panel">3-panel (0 / 1 / 2 mutations)</option>
+                                <option value="compare_table">Compare 0 vs 2 by cancer (table)</option>
+                            </select>
+                            <div id="mutationCautionScatter" style="display: none; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 6px 8px; margin-top: 8px; font-size: 10px; color: #92400e;">
+                                <strong>⚠️</strong> Mutations may be enriched in specific cancer types - correlations could reflect tissue rather than mutation effects.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="inspect-plot">
+                        <div id="scatterPlot" style="height: 550px;"></div>
+                        <div id="compareTable" style="display: none; max-height: 500px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="downloadScatterPNG">Download PNG</button>
+                <button class="btn btn-outline" id="downloadScatterSVG">Download SVG</button>
+                <button class="btn btn-outline" id="downloadScatterCSV">Download CSV</button>
+                <button class="btn btn-outline" id="downloadTissuePNG" style="display: none;">Download Chart PNG</button>
+                <button class="btn btn-outline" id="downloadTissueSVG" style="display: none;">Download Chart SVG</button>
+                <button class="btn btn-outline" id="downloadTissueCSV" style="display: none;">Download Table CSV</button>
+                <button class="btn btn-secondary" id="closeInspectBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>CoExpress | Part of the <a href="https://greenlisted.cmm.se" target="_blank">Green Listed</a> tool family | Data from <a href="https://depmap.org/portal/" target="_blank">DepMap</a> | <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a></p>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-200); font-size: 0.8em; line-height: 1.6; color: var(--gray-500);">
+            <p style="margin: 0 0 4px 0;">Data source: <a href="https://depmap.org" target="_blank">DepMap</a> (Broad Institute). Expression data: OmicsExpressionTPMLogp1HumanProteinCodingGenes (RNA-seq, log2 TPM+1). DepMap, Broad (2025). DepMap 25Q3 Public. Figshare+. Dataset.</p>
+            <p style="margin: 0 0 4px 0;">Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a>. This data is provided for research purposes only and should not be used for clinical decision-making.</p>
+            <p style="margin: 0 0 4px 0;">Disclaimer: This tool is provided as-is without warranty. Not intended for diagnostic or clinical use. Results should be independently validated.</p>
+            <p style="margin: 0;">&copy; 2025-2026 <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Expression Analysis Modal -->
+    <div class="modal-overlay" id="geneEffectModal" style="display: none;">
+        <div class="modal" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h3 id="geneEffectTitle">Expression Analysis</h3>
+                <button class="modal-close" id="closeGeneEffect">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 15px;">
+                <!-- Gene search bar -->
+                <div id="geSearchBar" style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; padding-bottom: 15px; border-bottom: 1px solid #e5e7eb;">
+                    <label style="font-weight: 500;">Gene:</label>
+                    <input type="text" id="geneEffectSearch" class="form-control" placeholder="Enter gene symbol" style="width: 150px; font-size: 13px;">
+                    <button class="btn btn-success btn-sm" id="geneEffectSearchBtn">Analyze</button>
+                    <span id="geneEffectCurrentGene" style="font-weight: 600; color: #5a9f4a; margin-left: 10px;"></span>
+                    <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+                        <button class="btn btn-sm btn-outline" id="geShowAllBtn" style="display: none;">← Show All</button>
+                        <span style="font-size: 12px; color: #6b7280;">View:</span>
+                        <button class="btn btn-sm" id="geViewTissue" style="background: #5a9f4a; color: white;">By Tissue</button>
+                        <button class="btn btn-sm btn-secondary" id="geViewHotspot">By Hotspot</button>
+                    </div>
+                </div>
+
+                <!-- Summary stats -->
+                <div id="geneEffectSummary" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 10px 14px; margin-bottom: 15px; display: none;">
+                    <div style="display: flex; gap: 25px; flex-wrap: wrap; font-size: 12px;">
+                        <div><strong>Gene:</strong> <span id="geSummaryGene">-</span></div>
+                        <div><strong>Mean Expr:</strong> <span id="geSummaryMean">-</span></div>
+                        <div><strong>SD:</strong> <span id="geSummarySD">-</span></div>
+                        <div><strong>Cell lines:</strong> <span id="geSummaryN">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Side-by-side layout: Chart + Table -->
+                <div id="geChartTableLayout" style="display: flex; gap: 20px; align-items: flex-start;">
+                    <!-- Chart container -->
+                    <div id="geChartContainer" style="flex: 0 0 55%; min-width: 0;">
+                        <!-- Aspect ratio control (shown in detailed view) -->
+                        <div id="geAspectRatioControl" style="display: none; margin-bottom: 8px; font-size: 11px;">
+                            <label style="margin-right: 8px;">Chart Width:</label>
+                            <input type="range" id="geAspectRatio" min="0.3" max="1" step="0.1" value="1" style="width: 100px; vertical-align: middle;">
+                            <span id="geAspectRatioValue" style="margin-left: 4px;">1.0</span>
+                        </div>
+                        <div id="geByTissueView">
+                            <div id="geneEffectPlot" style="width: 100%; min-height: 400px;"></div>
+                        </div>
+                        <div id="geByHotspotView" style="display: none;">
+                            <div id="mutationCautionGE" style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 11px; color: #92400e;">
+                                <strong>⚠️ Caution:</strong> Hotspot mutations are often enriched in specific cancer types. Observed differences in expression may reflect cancer type rather than the mutation itself.
+                            </div>
+                            <div id="geneEffectHotspotPlot" style="width: 100%; min-height: 400px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Table container -->
+                    <div id="geTableContainer" style="flex: 1; min-width: 300px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-weight: 600; color: #374151; font-size: 13px;">Statistics (click row to focus)</div>
+                            <input type="text" id="geTableSearch" class="form-control" placeholder="Search..." style="width: 120px; font-size: 11px; padding: 4px 8px;">
+                        </div>
+                        <div id="geStatsExplanation" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; font-size: 10px; color: #0c4a6e;">
+                            <span id="geStatsExplanationText">p-values: Welch's t-test comparing each cancer type vs all other cell lines.</span>
+                        </div>
+                        <div class="table-container" style="max-height: 450px; overflow-y: auto;">
+                            <table class="data-table" id="geneEffectTable" style="font-size: 11px;">
+                                <thead id="geTableHead">
+                                    <tr>
+                                        <th>Group</th>
+                                        <th>N</th>
+                                        <th>Mean Expr</th>
+                                        <th>SD</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="geneEffectTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Download buttons -->
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                    <span style="font-size: 12px; color: #6b7280; margin-right: 5px;">Export Chart:</span>
+                    <button class="btn btn-outline btn-sm" id="downloadGeneEffectPNG">PNG</button>
+                    <button class="btn btn-outline btn-sm" id="downloadGeneEffectSVG">SVG</button>
+                    <span style="font-size: 12px; color: #6b7280; margin-left: 15px; margin-right: 5px;">Export CSV:</span>
+                    <button class="btn btn-outline btn-sm" id="downloadGETableCSV">By Group</button>
+                    <button class="btn btn-outline btn-sm" id="downloadGECellLineCSV">By Cell Line</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Infographic Modal -->
+    <div class="modal-overlay" id="infographicModal" style="display: none;">
+        <div class="modal" style="max-width: 90vw; max-height: 90vh; overflow: auto;">
+            <div class="modal-header">
+                <h3>Gene Expression Correlation Explorer - Infographic</h3>
+                <button class="modal-close" id="closeInfoGraphic">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 10px; text-align: center;">
+                <img src="https://raw.githubusercontent.com/fredrikwermeling/correlation-app/main/infographic.png" alt="Gene Correlation Explorer Infographic" style="max-width: 100%; height: auto;">
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=20260208a"></script>
+</body>
+</html>

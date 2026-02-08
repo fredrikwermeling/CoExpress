@@ -1,0 +1,33 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+
+# Large source data files (not needed for web app)
+*.csv
+*.tsv
+
+# Screenshots and reference images
+*.png
+!favicon-32x32.png
+!web_data/coexpress_logo.png
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude/AI settings
+.claude/
+CLAUDE.md
