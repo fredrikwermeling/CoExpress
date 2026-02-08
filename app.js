@@ -694,7 +694,7 @@ class CorrelationExplorer {
         });
 
         // Gene effect distribution modal
-        document.getElementById('closeExpression').addEventListener('click', () => {
+        document.getElementById('closeGeneEffect').addEventListener('click', () => {
             document.getElementById('geneEffectModal').style.display = 'none';
         });
         document.getElementById('geneEffectModal').addEventListener('click', (e) => {
@@ -702,8 +702,8 @@ class CorrelationExplorer {
                 document.getElementById('geneEffectModal').style.display = 'none';
             }
         });
-        document.getElementById('downloadExpressionPNG').addEventListener('click', () => this.downloadExpressionPNG());
-        document.getElementById('downloadExpressionSVG').addEventListener('click', () => this.downloadExpressionSVG());
+        document.getElementById('downloadGeneEffectPNG').addEventListener('click', () => this.downloadGeneEffectPNG());
+        document.getElementById('downloadGeneEffectSVG').addEventListener('click', () => this.downloadGeneEffectSVG());
 
         // Network controls with slider bubble updates
         document.getElementById('netFontSize').addEventListener('input', (e) => {
@@ -723,14 +723,14 @@ class CorrelationExplorer {
         });
         document.getElementById('showHiddenNodes').addEventListener('click', () => this.showHiddenNodes());
         document.getElementById('restoreAllNodes').addEventListener('click', () => this.showHiddenNodes());
-        document.getElementById('showExpression').addEventListener('change', (e) => {
+        document.getElementById('showGeneEffect').addEventListener('change', (e) => {
             document.getElementById('showGESDGroup').style.display = e.target.checked ? 'inline' : 'none';
             this.updateNetworkLabels();
         });
-        document.getElementById('showExpressionSD').addEventListener('change', () => this.updateNetworkLabels());
+        document.getElementById('showGeneEffectSD').addEventListener('change', () => this.updateNetworkLabels());
 
         // Color by gene effect controls (mutually exclusive with stats)
-        document.getElementById('colorByExpression').addEventListener('change', (e) => {
+        document.getElementById('colorByGeneEffect').addEventListener('change', (e) => {
             if (e.target.checked) {
                 // Uncheck color by stats
                 document.getElementById('colorByStats').checked = false;
@@ -751,7 +751,7 @@ class CorrelationExplorer {
         document.getElementById('colorByStats').addEventListener('change', (e) => {
             if (e.target.checked) {
                 // Uncheck color by gene effect
-                document.getElementById('colorByExpression').checked = false;
+                document.getElementById('colorByGeneEffect').checked = false;
                 document.getElementById('colorGEOptions').style.display = 'none';
             }
             document.getElementById('colorStatsOptions').style.display = e.target.checked ? 'block' : 'none';
@@ -881,12 +881,12 @@ class CorrelationExplorer {
         // Gene Effect modal controls
         document.getElementById('geneEffectSearchBtn')?.addEventListener('click', () => {
             const gene = document.getElementById('geneEffectSearch').value.trim().toUpperCase();
-            if (gene) this.showExpressionAnalysis(gene, this.currentGEView || 'tissue');
+            if (gene) this.showGeneEffectAnalysis(gene, this.currentGEView || 'tissue');
         });
         document.getElementById('geneEffectSearch')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const gene = e.target.value.trim().toUpperCase();
-                if (gene) this.showExpressionAnalysis(gene, this.currentGEView || 'tissue');
+                if (gene) this.showGeneEffectAnalysis(gene, this.currentGEView || 'tissue');
             }
         });
         document.getElementById('geViewTissue')?.addEventListener('click', () => {
@@ -901,8 +901,8 @@ class CorrelationExplorer {
         document.getElementById('geTableSearch')?.addEventListener('input', (e) => {
             this.filterGETable(e.target.value);
         });
-        document.getElementById('downloadExpressionPNG')?.addEventListener('click', () => this.downloadExpressionChartPNG());
-        document.getElementById('downloadExpressionSVG')?.addEventListener('click', () => this.downloadExpressionChartSVG());
+        document.getElementById('downloadGeneEffectPNG')?.addEventListener('click', () => this.downloadGeneEffectChartPNG());
+        document.getElementById('downloadGeneEffectSVG')?.addEventListener('click', () => this.downloadGeneEffectChartSVG());
         document.getElementById('downloadGETableCSV')?.addEventListener('click', () => this.downloadGETableCSV());
         document.getElementById('downloadGECellLineCSV')?.addEventListener('click', () => this.downloadGECellLineCSV());
 
@@ -2517,7 +2517,7 @@ class CorrelationExplorer {
         Plotly.newPlot('geneEffectPlot', traces, layout, { responsive: true });
     }
 
-    downloadExpressionPNG() {
+    downloadGeneEffectPNG() {
         Plotly.downloadImage('geneEffectPlot', {
             format: 'png',
             width: 900,
@@ -2526,7 +2526,7 @@ class CorrelationExplorer {
         });
     }
 
-    downloadExpressionSVG() {
+    downloadGeneEffectSVG() {
         Plotly.downloadImage('geneEffectPlot', {
             format: 'svg',
             width: 900,
@@ -2818,9 +2818,9 @@ class CorrelationExplorer {
         document.getElementById('edgeWidthBubble').textContent = '3';
 
         // Reset checkboxes
-        document.getElementById('showExpression').checked = false;
-        document.getElementById('showExpressionSD').checked = false;
-        document.getElementById('colorByExpression').checked = false;
+        document.getElementById('showGeneEffect').checked = false;
+        document.getElementById('showGeneEffectSD').checked = false;
+        document.getElementById('colorByGeneEffect').checked = false;
         document.getElementById('colorAbsoluteGE').checked = false;
         document.getElementById('colorByLFC').checked = false;
         document.getElementById('colorByFDR').checked = false;
@@ -3303,10 +3303,10 @@ class CorrelationExplorer {
 
         // Add event listeners to buttons
         tbody.querySelectorAll('.tissue-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.openExpressionModal(btn.dataset.gene, 'tissue'));
+            btn.addEventListener('click', () => this.openGeneEffectModal(btn.dataset.gene, 'tissue'));
         });
         tbody.querySelectorAll('.hotspot-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.openExpressionModal(btn.dataset.gene, 'hotspot'));
+            btn.addEventListener('click', () => this.openGeneEffectModal(btn.dataset.gene, 'hotspot'));
         });
     }
 
@@ -3545,7 +3545,7 @@ Results:
         // Calculate total legend width to center it
         let totalLegendWidth = 160 + 160; // Correlation + Edge Thickness
         if (this.results?.mode === 'design') totalLegendWidth += 140;
-        if (document.getElementById('colorByExpression').checked && this.results?.clusters) totalLegendWidth += 170;
+        if (document.getElementById('colorByGeneEffect').checked && this.results?.clusters) totalLegendWidth += 170;
         if (document.getElementById('colorByStats').checked && this.geneStats && this.geneStats.size > 0) totalLegendWidth += 200;
 
         let legendX = Math.max(40, (totalWidth - totalLegendWidth) / 2);
@@ -3641,7 +3641,7 @@ Results:
         }
 
         // Color by Gene Effect legend
-        const colorByExpression = document.getElementById('colorByExpression').checked;
+        const colorByExpression = document.getElementById('colorByGeneEffect').checked;
         if (colorByExpression && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
             const effectValues = this.results.clusters.map(c => c.meanEffect).filter(v => !isNaN(v));
@@ -3892,7 +3892,7 @@ Results:
         // Calculate total legend width to center it
         let totalLegendWidth = 160 + 160; // Correlation + Edge Thickness (note: 110+160 is used but let's use similar calc)
         if (this.results?.mode === 'design') totalLegendWidth += 140;
-        if (document.getElementById('colorByExpression').checked && this.results?.clusters) totalLegendWidth += 170;
+        if (document.getElementById('colorByGeneEffect').checked && this.results?.clusters) totalLegendWidth += 170;
         if (document.getElementById('colorByStats').checked && this.geneStats && this.geneStats.size > 0) totalLegendWidth += 200;
 
         let legendX = Math.max(40, (width - totalLegendWidth) / 2);
@@ -3942,7 +3942,7 @@ Results:
         }
 
         // Color by Gene Effect legend
-        const colorByExpression = document.getElementById('colorByExpression').checked;
+        const colorByExpression = document.getElementById('colorByGeneEffect').checked;
         if (colorByExpression && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
             const effectValues = this.results.clusters.map(c => c.meanEffect).filter(v => !isNaN(v));
@@ -4078,8 +4078,8 @@ Results:
     updateNetworkLabels() {
         if (!this.network || !this.networkData) return;
 
-        const showGE = document.getElementById('showExpression').checked;
-        const showSD = document.getElementById('showExpressionSD').checked;
+        const showGE = document.getElementById('showGeneEffect').checked;
+        const showSD = document.getElementById('showGeneEffectSD').checked;
         const updates = [];
 
         this.networkData.nodes.forEach(node => {
@@ -4109,8 +4109,8 @@ Results:
         if (!this.network || !this.networkData) return;
 
         const statsDisplay = document.querySelector('input[name="statsLabelDisplay"]:checked')?.value || 'none';
-        const showGE = document.getElementById('showExpression').checked;
-        const showSD = document.getElementById('showExpressionSD').checked;
+        const showGE = document.getElementById('showGeneEffect').checked;
+        const showSD = document.getElementById('showGeneEffectSD').checked;
         const updates = [];
 
         // Build reverse lookup for synonyms to find stats from original name
@@ -4164,7 +4164,7 @@ Results:
         if (!this.network || !this.networkData) return;
 
         const colorByStats = document.getElementById('colorByStats').checked;
-        const colorByExpression = document.getElementById('colorByExpression').checked;
+        const colorByExpression = document.getElementById('colorByGeneEffect').checked;
         const colorStatType = document.querySelector('input[name="colorStatType"]:checked')?.value || 'signed_lfc';
         const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
         const colorScale = document.querySelector('input[name="colorScale"]:checked')?.value || 'all';
@@ -4526,9 +4526,9 @@ Results:
 
     resetNetworkSettings() {
         // Reset checkboxes
-        document.getElementById('showExpression').checked = false;
-        document.getElementById('showExpressionSD').checked = false;
-        document.getElementById('colorByExpression').checked = false;
+        document.getElementById('showGeneEffect').checked = false;
+        document.getElementById('showGeneEffectSD').checked = false;
+        document.getElementById('colorByGeneEffect').checked = false;
         document.getElementById('colorByStats').checked = false;
 
         // Reset visibility of sub-options
@@ -4700,7 +4700,7 @@ Results:
         // Calculate total legend width to center it
         let totalLegendWidth = 160 + 160; // Correlation + Edge Thickness
         if (this.results?.mode === 'design') totalLegendWidth += 140;
-        if (document.getElementById('colorByExpression').checked && this.results?.clusters) totalLegendWidth += 170;
+        if (document.getElementById('colorByGeneEffect').checked && this.results?.clusters) totalLegendWidth += 170;
         if (document.getElementById('colorByStats').checked && this.geneStats && this.geneStats.size > 0) totalLegendWidth += 200;
 
         let legendX = Math.max(40, (totalWidth - totalLegendWidth) / 2);
@@ -4796,7 +4796,7 @@ Results:
         }
 
         // Color by Gene Effect legend
-        const colorByExpression = document.getElementById('colorByExpression').checked;
+        const colorByExpression = document.getElementById('colorByGeneEffect').checked;
         if (colorByExpression && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
             const effectValues = this.results.clusters.map(c => c.meanEffect).filter(v => !isNaN(v));
@@ -5039,7 +5039,7 @@ Results:
         // Calculate total legend width to center it
         let totalLegendWidth = 160 + 160; // Correlation + Edge Thickness
         if (this.results?.mode === 'design') totalLegendWidth += 140;
-        if (document.getElementById('colorByExpression').checked && this.results?.clusters) totalLegendWidth += 170;
+        if (document.getElementById('colorByGeneEffect').checked && this.results?.clusters) totalLegendWidth += 170;
         if (document.getElementById('colorByStats').checked && this.geneStats && this.geneStats.size > 0) totalLegendWidth += 200;
 
         let legendX = Math.max(40, (width - totalLegendWidth) / 2);
@@ -5088,7 +5088,7 @@ Results:
         }
 
         // Color by Gene Effect legend
-        const colorByExpression = document.getElementById('colorByExpression').checked;
+        const colorByExpression = document.getElementById('colorByGeneEffect').checked;
         if (colorByExpression && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
             const effectValues = this.results.clusters.map(c => c.meanEffect).filter(v => !isNaN(v));
@@ -6927,7 +6927,7 @@ Results:
     // Gene Effect Modal Methods
     // ============================================================
 
-    openExpressionModal(gene, view = 'tissue') {
+    openGeneEffectModal(gene, view = 'tissue') {
         const geneUpper = gene.toUpperCase();
         if (!this.geneIndex.has(geneUpper)) {
             alert(`Gene "${gene}" not found in the dataset.`);
@@ -7044,8 +7044,8 @@ Results:
         });
     }
 
-    showExpressionAnalysis(gene, view = 'tissue') {
-        this.openExpressionModal(gene, view);
+    showGeneEffectAnalysis(gene, view = 'tissue') {
+        this.openGeneEffectModal(gene, view);
     }
 
     renderExpressionByTissue() {
@@ -7380,7 +7380,7 @@ Results:
     }
 
     openExpressionFromNetwork(gene) {
-        this.openExpressionModal(gene, 'tissue');
+        this.openGeneEffectModal(gene, 'tissue');
     }
 
     renderGETable(stats, mode) {
@@ -7773,7 +7773,7 @@ Results:
         });
     }
 
-    downloadExpressionChartPNG() {
+    downloadGeneEffectChartPNG() {
         if (!this.currentExpression) return;
         const plotId = this.currentGEView === 'tissue' ? 'geneEffectPlot' : 'geneEffectHotspotPlot';
         const plotEl = document.getElementById(plotId);
@@ -7788,7 +7788,7 @@ Results:
         });
     }
 
-    downloadExpressionChartSVG() {
+    downloadGeneEffectChartSVG() {
         if (!this.currentExpression) return;
         const plotId = this.currentGEView === 'tissue' ? 'geneEffectPlot' : 'geneEffectHotspotPlot';
         const plotEl = document.getElementById(plotId);
