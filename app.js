@@ -636,7 +636,7 @@ class CorrelationExplorer {
                     p.style.display = 'none';
                 });
                 tab.classList.add('active');
-                tab.style.background = '#5a9f4a';
+                tab.style.background = '#43a047';
                 tab.style.color = 'white';
                 const panel = document.getElementById('stats-' + tab.dataset.statsInput);
                 panel.classList.add('active');
@@ -2907,7 +2907,7 @@ class CorrelationExplorer {
                 font: { size: fontSize, color: '#333' },
                 color: {
                     background: this.results.mode === 'design' ?
-                        (isInput ? '#5a9f4a' : '#a8d89a') : '#5a9f4a',
+                        (isInput ? '#43a047' : '#a5d6a7') : '#43a047',
                     border: '#ffffff'
                 },
                 borderWidth: 2,
@@ -3072,8 +3072,8 @@ class CorrelationExplorer {
         if (this.results.mode === 'design') {
             legendNodeType.innerHTML = `
                 <strong>Node Type:</strong>
-                <span class="legend-item"><span class="legend-dot" style="background: #5a9f4a;"></span> Input</span>
-                <span class="legend-item"><span class="legend-dot" style="background: #a8d89a;"></span> Correlated</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #43a047;"></span> Input</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #a5d6a7;"></span> Correlated</span>
             `;
             legendNodeType.style.display = 'block';
         } else {
@@ -3184,7 +3184,7 @@ class CorrelationExplorer {
                     <td>${c.n}</td>
                     <td>${c.cluster}</td>
                     <td style="white-space: nowrap;">
-                        <button class="btn btn-sm inspect-btn" style="padding: 2px 6px; font-size: 10px; background: #5a9f4a; color: white;" data-gene1="${c.gene1}" data-gene2="${c.gene2}">Correlate</button>
+                        <button class="btn btn-sm inspect-btn" style="padding: 2px 6px; font-size: 10px; background: #43a047; color: white;" data-gene1="${c.gene1}" data-gene2="${c.gene2}">Correlate</button>
                         <button class="btn btn-sm tissue-btn" style="padding: 2px 6px; font-size: 10px; margin-left: 4px; background: #6b7280; color: white;" data-gene1="${c.gene1}" data-gene2="${c.gene2}">By Tissue</button>
                     </td>
                 `;
@@ -3292,7 +3292,7 @@ class CorrelationExplorer {
                 // Add analyze buttons
                 rowHtml += `
                     <td style="text-align: center; white-space: nowrap;">
-                        <button class="btn btn-sm tissue-btn" style="padding: 2px 6px; font-size: 10px; background: #5a9f4a; color: white;" data-gene="${c.gene}">By Tissue</button>
+                        <button class="btn btn-sm tissue-btn" style="padding: 2px 6px; font-size: 10px; background: #43a047; color: white;" data-gene="${c.gene}">By Tissue</button>
                         <button class="btn btn-sm hotspot-btn" style="padding: 2px 6px; font-size: 10px; margin-left: 4px; background: #6b7280; color: white;" data-gene="${c.gene}">By Hotspot</button>
                     </td>
                 `;
@@ -3622,7 +3622,7 @@ Results:
             ctx.font = textFont;
 
             // Input gene
-            ctx.fillStyle = '#5a9f4a';
+            ctx.fillStyle = '#43a047';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 25, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -3630,7 +3630,7 @@ Results:
             ctx.fillText('Input', legendX + 28, legendY + 30);
 
             // Correlated gene
-            ctx.fillStyle = '#a8d89a';
+            ctx.fillStyle = '#a5d6a7';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 52, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -3874,7 +3874,7 @@ Results:
         this.networkData.nodes.forEach(node => {
             const pos = domPositions[node.id];
             if (pos) {
-                const bgColor = node.color?.background || '#5a9f4a';
+                const bgColor = node.color?.background || '#43a047';
                 svg += `  <circle cx="${pos.x}" cy="${pos.y}" r="${nodeSize/2}" fill="${bgColor}" stroke="white" stroke-width="${2 * scale}"/>\n`;
 
                 // Handle multi-line labels
@@ -3933,9 +3933,9 @@ Results:
         // Node type legend (for design mode)
         if (this.results?.mode === 'design') {
             svg += `  <text x="${legendX}" y="${legendY}" class="legend-title">Node Type:</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#5a9f4a"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#43a047"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 30}" class="legend-text">Input</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a8d89a"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a5d6a7"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 57}" class="legend-text">Correlated</text>\n`;
 
             legendX += 140;
@@ -4253,7 +4253,7 @@ Results:
                     id: node.id,
                     color: {
                         background: this.results?.mode === 'design' ?
-                            (isInput ? '#5a9f4a' : '#a8d89a') : '#5a9f4a',
+                            (isInput ? '#43a047' : '#a5d6a7') : '#43a047',
                         border: '#ffffff'
                     }
                 });
@@ -4777,7 +4777,7 @@ Results:
             ctx.font = textFont;
 
             // Input gene
-            ctx.fillStyle = '#5a9f4a';
+            ctx.fillStyle = '#43a047';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 25, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -4785,7 +4785,7 @@ Results:
             ctx.fillText('Input', legendX + 28, legendY + 30);
 
             // Correlated gene
-            ctx.fillStyle = '#a8d89a';
+            ctx.fillStyle = '#a5d6a7';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 52, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -5021,7 +5021,7 @@ Results:
         this.networkData.nodes.forEach(node => {
             const pos = domPositions[node.id];
             if (pos) {
-                const bgColor = node.color?.background || '#5a9f4a';
+                const bgColor = node.color?.background || '#43a047';
                 svg += `  <circle cx="${pos.x}" cy="${pos.y}" r="${nodeSize/2}" fill="${bgColor}" stroke="white" stroke-width="${2 * scale}"/>\n`;
 
                 // Handle multi-line labels
@@ -5079,9 +5079,9 @@ Results:
         // Node type legend (for design mode)
         if (this.results?.mode === 'design') {
             svg += `  <text x="${legendX}" y="${legendY}" class="legend-title">Node Type:</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#5a9f4a"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#43a047"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 30}" class="legend-text">Input</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a8d89a"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a5d6a7"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 57}" class="legend-text">Correlated</text>\n`;
 
             legendX += 140;
@@ -5663,7 +5663,7 @@ Results:
                 y: [allStats.slope * xRange[0] + intercept, allStats.slope * xRange[1] + intercept],
                 mode: 'lines',
                 type: 'scatter',
-                line: { color: '#5a9f4a', width: 3 },
+                line: { color: '#43a047', width: 3 },
                 fill: 'none',
                 name: 'Regression',
                 showlegend: false
@@ -5831,9 +5831,9 @@ Results:
             }
         };
 
-        addRegressionLine(wt, wtStats, 'x', 'y', '#5a9f4a');
-        addRegressionLine(mut1, mut1Stats, 'x2', 'y2', '#5a9f4a');
-        addRegressionLine(mut2, mut2Stats, 'x3', 'y3', '#5a9f4a');
+        addRegressionLine(wt, wtStats, 'x', 'y', '#43a047');
+        addRegressionLine(mut1, mut1Stats, 'x2', 'y2', '#43a047');
+        addRegressionLine(mut2, mut2Stats, 'x3', 'y3', '#43a047');
 
         // Add highlighted cells for each panel
         const addHighlights = (data, xaxis, yaxis) => {
@@ -6014,8 +6014,8 @@ Results:
         `;
 
         tableData.forEach(row => {
-            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#5a9f4a';
-            const deltaSlopeColor = row.deltaSlope < 0 ? '#dc2626' : '#5a9f4a';
+            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#43a047';
+            const deltaSlopeColor = row.deltaSlope < 0 ? '#dc2626' : '#43a047';
 
             html += `
                 <tr class="clickable-row" data-lineage="${row.lineage}" style="cursor: pointer;" title="Click to view ${row.lineage} scatter plot with ${hotspotGene} overlay">
@@ -6228,7 +6228,7 @@ Results:
         `;
 
         tableData.forEach(row => {
-            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#5a9f4a';
+            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#43a047';
             const pHighlight = row.pR < 0.05 ? 'background: #fef3c7;' : '';
 
             html += `
@@ -6645,15 +6645,15 @@ Results:
             <div style="max-height: 500px; overflow-y: auto;">
             <table id="byTissueTable" style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
-                    <tr style="background-color: #5a9f4a; color: white;">
-                        <th data-col="0" style="padding: 6px; border: 1px solid #5a9f4a; text-align: left; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">Lineage ▼</th>
-                        <th data-col="1" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">N</th>
-                        <th data-col="2" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">Corr</th>
-                        <th data-col="3" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">Slope</th>
-                        <th data-col="4" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene1} (mean)</th>
-                        <th data-col="5" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene1} (SD)</th>
-                        <th data-col="6" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene2} (mean)</th>
-                        <th data-col="7" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene2} (SD)</th>
+                    <tr style="background-color: #43a047; color: white;">
+                        <th data-col="0" style="padding: 6px; border: 1px solid #43a047; text-align: left; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">Lineage ▼</th>
+                        <th data-col="1" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">N</th>
+                        <th data-col="2" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">Corr</th>
+                        <th data-col="3" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">Slope</th>
+                        <th data-col="4" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene1} (mean)</th>
+                        <th data-col="5" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene1} (SD)</th>
+                        <th data-col="6" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene2} (mean)</th>
+                        <th data-col="7" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene2} (SD)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -7004,7 +7004,7 @@ Results:
         const statsExplanation = document.getElementById('geStatsExplanationText');
 
         if (view === 'tissue') {
-            tissueBtn.style.background = '#5a9f4a';
+            tissueBtn.style.background = '#43a047';
             tissueBtn.style.color = 'white';
             tissueBtn.classList.remove('btn-secondary');
             hotspotBtn.style.background = '';
@@ -7015,7 +7015,7 @@ Results:
             if (statsExplanation) statsExplanation.textContent = "p-values: Welch's t-test comparing each cancer type vs all other cell lines.";
             this.renderExpressionByTissue();
         } else {
-            hotspotBtn.style.background = '#5a9f4a';
+            hotspotBtn.style.background = '#43a047';
             hotspotBtn.style.color = 'white';
             hotspotBtn.classList.remove('btn-secondary');
             tissueBtn.style.background = '';
@@ -7663,7 +7663,7 @@ Results:
                     color: groupEffects.map(v => v < -0.5 ? '#dc2626' : v > 0 ? '#16a34a' : '#6b7280'),
                     size: 6
                 },
-                line: { color: '#5a9f4a', width: 2 },
+                line: { color: '#43a047', width: 2 },
                 fillcolor: 'rgba(90, 159, 74, 0.4)',
                 hovertemplate: '<b>%{text}</b><br>Expression: %{y:.3f}<extra>' + group + '</extra>'
             }
