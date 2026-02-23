@@ -38,7 +38,7 @@
 
         body {
             font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #fafdfb;
+            background-color: #ffffff;
             min-height: 100vh;
             color: #1f2937;
             margin: 0;
@@ -78,13 +78,12 @@
             text-decoration: underline;
         }
 
-        /* Navigation bar */
+        /* Navigation bar - Green Listed style */
         .nav-bar {
             text-align: center;
-            padding: 0 20px 8px 20px;
+            padding: 0 20px 5px 20px;
             background: white;
             margin-bottom: 8px;
-            border-bottom: 2px solid var(--green-200);
         }
 
         .nav-bar a {
@@ -209,8 +208,8 @@
         }
 
         .stats-sub-tab:hover {
-            background: #e8f5e9 !important;
-            color: #2e7d32 !important;
+            background: #e2f4de !important;
+            color: #388e3c !important;
         }
 
         .stats-sub-tab.active {
@@ -223,13 +222,13 @@
             min-width: 0;
         }
 
-        /* Cards */
+        /* Cards - Green Listed style */
         .card {
             background: white;
-            border-radius: 10px;
+            border-radius: 8px;
             margin-bottom: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
             overflow: hidden;
         }
 
@@ -237,10 +236,10 @@
             font-weight: 600;
             font-size: 1.05em;
             color: white;
-            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+            background: #43a047;
             margin: 0;
             padding: 12px 20px;
-            border-radius: 9px 9px 0 0;
+            border-radius: 7px 7px 0 0;
         }
 
         .card-content {
@@ -1202,7 +1201,7 @@
                             </label>
                             <label>
                                 <input type="radio" name="analysisMode" value="mutation">
-                                Mutation Analysis (differential Expr)
+                                Mutation Analysis (differential GE)
                             </label>
                             <label>
                                 <input type="radio" name="analysisMode" value="synonym">
@@ -1243,7 +1242,7 @@
 
                     <div class="form-group" id="pValueThresholdGroup" style="display: none;">
                         <label class="form-label">P-value Threshold:</label>
-                        <input type="number" id="pValueThreshold" class="form-control" value="0.001" min="0.0001" max="1" step="0.001" style="width: 80px;">
+                        <input type="text" inputmode="decimal" id="pValueThreshold" class="form-control" value="0.001" style="width: 80px;">
                     </div>
 
                     <div class="form-group" id="lineageFilterGroup" style="display: none;">
@@ -1258,6 +1257,11 @@
                         <select id="subLineageFilter" class="form-control">
                             <option value="">All subtypes</option>
                         </select>
+                    </div>
+
+                    <div class="form-group" id="tissueExcludeGroup">
+                        <label class="form-label" style="cursor: pointer;" onclick="document.getElementById('tissueExcludeList').style.display = document.getElementById('tissueExcludeList').style.display === 'none' ? 'block' : 'none'">Exclude Tissues: <span style="font-size: 10px; color: #6b7280;">▼ click to expand</span></label>
+                        <div id="tissueExcludeList" style="display: none; max-height: 150px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; background: #f9fafb;"></div>
                     </div>
 
                     <div class="form-group" id="paramHotspotFilterGroup" style="display: none;">
@@ -1424,7 +1428,7 @@
                             </div>
                         </div>
 
-                        <!-- Column 2: Gene Effect + Gene Statistics -->
+                        <!-- Column 2: Expression + Gene Statistics -->
                         <div class="control-column control-box">
                             <!-- Expression options (always shown) -->
                             <div class="checkbox-group" style="margin-bottom: 4px;">
@@ -1436,9 +1440,12 @@
                             <div class="checkbox-group" style="margin-bottom: 4px;">
                                 <label><input type="checkbox" id="colorByGeneEffect"> Color by Expr</label>
                             </div>
+                            <div class="checkbox-group" style="margin-bottom: 4px;">
+                                <label><input type="checkbox" id="showUncorrelatedGenes"> Show all input genes in network</label>
+                            </div>
                             <div id="colorGEOptions" style="display: none; margin-left: 20px; margin-bottom: 4px;">
                                 <div class="radio-group-inline">
-                                    <label><input type="radio" name="colorGEType" value="signed" checked> Expr</label>
+                                    <label><input type="radio" name="colorGEType" value="signed" checked> GE</label>
                                     <label><input type="radio" name="colorGEType" value="absolute"> Absolute</label>
                                 </div>
                             </div>
@@ -1474,11 +1481,16 @@
                             <div class="button-group-horizontal" style="margin-bottom: 4px;">
                                 <button class="btn btn-secondary" id="fitNetwork">Fit</button>
                                 <button class="btn btn-secondary" id="showHiddenNodes">Show Hidden</button>
+                                <button class="btn btn-secondary" id="toggleSelectMode">Select Mode</button>
                                 <button class="btn btn-secondary" id="toggleRemoveMode">Remove Mode</button>
                                 <button class="btn btn-secondary" id="togglePhysics">Lock</button>
                                 <button class="btn btn-secondary" id="changeLayout">Layout</button>
                             </div>
                             <p class="help-text" id="networkHelpText" style="font-size: 9px; margin-bottom: 6px;">Double-click node for Expression, edge for Correlation</p>
+                            <div id="selectedNodesList" style="display: none; font-size: 9px; margin-bottom: 6px; padding: 4px; background: #dbeafe; border-radius: 3px;">
+                                <span style="font-weight: 600;">Selected:</span> <span id="selectedNodesText"></span>
+                                <button class="btn btn-sm" id="clearSelectedNodes" style="padding: 1px 4px; font-size: 8px; margin-left: 4px;">Clear</button>
+                            </div>
                             <div id="removedNodesList" style="display: none; font-size: 9px; margin-bottom: 6px; padding: 4px; background: #fef3c7; border-radius: 3px;">
                                 <span style="font-weight: 600;">Removed:</span> <span id="removedNodesText"></span>
                                 <button class="btn btn-sm" id="restoreAllNodes" style="padding: 1px 4px; font-size: 8px; margin-left: 4px;">Restore All</button>
@@ -1530,10 +1542,12 @@
                 <!-- Correlations Tab -->
                 <div class="tab-content" id="tab-correlations">
                     <div class="tip-box">
-                        <strong>Tip:</strong> Click <strong>Correlate</strong> to view a scatter plot, or <strong>By Tissue</strong> for tissue breakdown. You can adjust axis ranges, highlight specific cell lines, and download as PNG or CSV.
+                        <strong>Tip:</strong> Click <strong>Correlate</strong> to view a scatter plot, or <strong>By Tissue</strong> for tissue breakdown. Ctrl/Cmd+click a column header to copy that column. Use <strong>Filters</strong> to set numeric cutoffs on columns.
                     </div>
                     <div class="table-controls">
                         <input type="text" class="table-search" id="correlationsSearch" placeholder="Search...">
+                        <button class="btn btn-outline btn-sm" id="filterCorrelationsToggle" title="Toggle column filters">Filters</button>
+                        <button class="btn btn-outline btn-sm" id="copyCorrelationGenes" title="Copy gene names to clipboard">Copy Genes</button>
                         <button class="btn btn-outline btn-sm" id="downloadCorrelations">Download CSV</button>
                     </div>
                     <div class="table-container">
@@ -1561,9 +1575,11 @@
                     <div id="clustersFilterInfo" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; display: none;">
                         <strong>Filters:</strong> <span id="clustersFilterText"></span>
                     </div>
-                    <p class="help-text" style="margin-bottom: 15px;">Mean (All) = all cells, Mean (Filt) = filtered cells. * indicates genes from your input list (Design mode).</p>
+                    <p class="help-text" style="margin-bottom: 15px;">Mean (All) = all cells, Mean (Filt) = filtered cells. * indicates genes from your input list (Design mode). All input genes are shown; "Corr" column indicates if correlations were found.</p>
                     <div class="table-controls">
                         <input type="text" class="table-search" id="clustersSearch" placeholder="Search...">
+                        <button class="btn btn-outline btn-sm" id="filterClustersToggle" title="Toggle column filters">Filters</button>
+                        <button class="btn btn-outline btn-sm" id="copyClustersGenes" title="Copy gene names to clipboard">Copy Genes</button>
                         <button class="btn btn-outline btn-sm" id="downloadClusters">Download CSV</button>
                     </div>
                     <div class="table-container">
@@ -1585,37 +1601,40 @@
 
                 <!-- Mutation Analysis Tab -->
                 <div class="tab-content" id="tab-mutation">
-                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: #92400e;">
-                        <strong>Note:</strong> Differential expression may reflect selection bias (e.g., mutations enriched in certain cancer types) rather than direct functional consequences of the mutation. Consider filtering by lineage to control for tissue-specific effects.
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 8px 12px; margin-bottom: 10px; font-size: 11px; color: #92400e;">
+                        <strong>Note:</strong> Differential expressions may reflect selection bias (e.g., mutations enriched in certain cancer types) rather than direct functional consequences of the mutation. Consider filtering by lineage to control for tissue-specific effects.
                     </div>
-                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: #0c4a6e;">
-                        <strong>Statistics:</strong> p-values are calculated using Welch's t-test comparing expression levels between wild-type (WT, 0 mutations) and mutated cells (1+2 or 2 mutations). Δ Expr = Mean(mutated) − Mean(WT).
+                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 4px; padding: 8px 12px; margin-bottom: 10px; font-size: 11px; color: #0c4a6e;">
+                        <strong>Statistics:</strong> p-values are calculated using Welch's t-test comparing expression scores between wild-type (WT, 0 mutations) and mutated cells (1+2 or 2 mutations). Δ Expr = Mean(mutated) − Mean(WT).
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <div>
-                            <span id="mutationResultsCount">0 genes with p < 0.001</span>
-                        </div>
-                        <div>
-                            <input type="text" id="mutationSearch" class="form-control" placeholder="Search genes..." style="width: 200px; display: inline-block; margin-right: 10px;">
-                            <button class="btn btn-outline btn-sm" id="downloadMutationResults">Export CSV</button>
-                        </div>
+                    <div id="mutationResultsCount" style="margin-bottom: 10px;">0 genes with p < 0.001</div>
+                    <div style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+                        <input type="text" id="mutationSearch" class="form-control" placeholder="Search genes..." style="width: 160px; display: inline-block; font-size: 12px; padding: 4px 8px;">
+                        <button class="btn btn-outline btn-sm" id="filterMutationToggle" title="Toggle column filters">Filters</button>
+                        <button class="btn btn-outline btn-sm" id="copyMutationGenes" title="Copy gene names to clipboard">Copy Genes</button>
+                        <button class="btn btn-outline btn-sm" id="downloadMutationResults">Export CSV</button>
+                        <span style="border-left: 1px solid #d1d5db; height: 20px; margin: 0 2px;"></span>
+                        <button class="btn btn-secondary btn-sm" id="mutCompareByTissueBtn" title="Show how the mutation effect on top genes varies across cancer types">Compare by Tissue</button>
+                        <button class="btn btn-secondary btn-sm" id="mutCompareByHotspotBtn" title="Check if other mutations also affect these top genes">Compare by Hotspot</button>
+                        <button class="btn btn-sm" id="mutCompareCloseBtn" style="display: none; background: #43a047; color: white;" title="Close comparison table">✕ Close</button>
                     </div>
+                    <div id="mutationCompareTable" style="display: none; max-height: 500px; overflow-y: auto; margin-bottom: 15px;"></div>
                     <div class="table-container" style="max-height: 600px; overflow-y: auto;">
                         <table class="data-table" id="mutationTable">
                             <thead>
                                 <tr>
                                     <th></th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="gene">Gene ▼</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="n_wt" style="border-left: 2px solid #2563eb;">N (WT)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="mean_wt">Mean Expr (WT)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="n_mut" style="border-left: 2px solid #f97316;">N (1+2)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="mean_mut">Mean Expr (1+2)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="diff_mut">Δ Expr</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="p_mut">p-value</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="n_2" style="border-left: 2px solid #dc2626;">N (2)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="mean_2">Mean Expr (2)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="diff_2">Δ Expr (2v0)</th>
-                                    <th onclick="app.sortMutationTable(this)" data-col="p_2">p-value (2v0)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="gene" title="Click to sort. Ctrl/Cmd+click to copy column.">Gene ▼</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="n_wt" style="border-left: 2px solid #2563eb;" title="Click to sort. Ctrl/Cmd+click to copy column.">N (WT)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="mean_wt" title="Click to sort. Ctrl/Cmd+click to copy column.">Mean Expr (WT)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="n_mut" style="border-left: 2px solid #f97316;" title="Click to sort. Ctrl/Cmd+click to copy column.">N (1+2)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="mean_mut" title="Click to sort. Ctrl/Cmd+click to copy column.">Mean Expr (1+2)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="diff_mut" title="Click to sort. Ctrl/Cmd+click to copy column.">Δ Expr</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="p_mut" title="Click to sort. Ctrl/Cmd+click to copy column.">p-value</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="n_2" style="border-left: 2px solid #dc2626;" title="Click to sort. Ctrl/Cmd+click to copy column.">N (2)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="mean_2" title="Click to sort. Ctrl/Cmd+click to copy column.">Mean Expr (2)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="diff_2" title="Click to sort. Ctrl/Cmd+click to copy column.">Δ Expr (2v0)</th>
+                                    <th onclick="app.sortMutationTable(this, event)" data-col="p_2" title="Click to sort. Ctrl/Cmd+click to copy column.">p-value (2v0)</th>
                                 </tr>
                             </thead>
                             <tbody id="mutationTableBody">
@@ -1696,19 +1715,19 @@
                             <div class="axis-inputs">
                                 <div>
                                     <label>X min</label>
-                                    <input type="number" id="scatterXmin" step="0.1">
+                                    <input type="text" inputmode="decimal" id="scatterXmin" step="0.1">
                                 </div>
                                 <div>
                                     <label>X max</label>
-                                    <input type="number" id="scatterXmax" step="0.1">
+                                    <input type="text" inputmode="decimal" id="scatterXmax" step="0.1">
                                 </div>
                                 <div>
                                     <label>Y min</label>
-                                    <input type="number" id="scatterYmin" step="0.1">
+                                    <input type="text" inputmode="decimal" id="scatterYmin" step="0.1">
                                 </div>
                                 <div>
                                     <label>Y max</label>
-                                    <input type="number" id="scatterYmax" step="0.1">
+                                    <input type="text" inputmode="decimal" id="scatterYmax" step="0.1">
                                 </div>
                             </div>
                             <button class="btn btn-outline btn-sm" id="resetAxes" style="width: 100%; margin-top: 8px;">Reset</button>
@@ -1813,10 +1832,10 @@
     <footer class="footer">
         <p>CoExpress | Part of the <a href="https://greenlisted.cmm.se" target="_blank">Green Listed</a> tool family | Data from <a href="https://depmap.org/portal/" target="_blank">DepMap</a> | <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a></p>
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-200); font-size: 0.8em; line-height: 1.6; color: var(--gray-500);">
-            <p style="margin: 0 0 4px 0;">Data source: <a href="https://depmap.org" target="_blank">DepMap</a> (Broad Institute). Expression data: OmicsExpressionTPMLogp1HumanProteinCodingGenes (RNA-seq, log2 TPM+1). DepMap, Broad (2025). DepMap 25Q3 Public. Figshare+. Dataset.</p>
+            <p style="margin: 0 0 4px 0;">Data source: <a href="https://depmap.org" target="_blank">DepMap</a> (Broad Institute). DepMap, Broad (2025). DepMap 25Q3 Public. Figshare+. Dataset.</p>
             <p style="margin: 0 0 4px 0;">Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a>. This data is provided for research purposes only and should not be used for clinical decision-making.</p>
             <p style="margin: 0 0 4px 0;">Disclaimer: This tool is provided as-is without warranty. Not intended for diagnostic or clinical use. Results should be independently validated.</p>
-            <p style="margin: 0;">&copy; 2025-2026 <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>. All rights reserved.</p>
+            <p style="margin: 0;">&copy; 2025 <a href="https://wermelinglab.com" target="_blank">Wermeling Lab</a>. All rights reserved.</p>
         </div>
     </footer>
 
@@ -1836,6 +1855,9 @@
                     <span id="geneEffectCurrentGene" style="font-weight: 600; color: #43a047; margin-left: 10px;"></span>
                     <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
                         <button class="btn btn-sm btn-outline" id="geShowAllBtn" style="display: none;">← Show All</button>
+                        <select id="geTissueFilter" class="form-control" style="width: 140px; font-size: 11px; padding: 3px 6px;" title="Filter by tissue/cancer type">
+                            <option value="">All tissues</option>
+                        </select>
                         <span style="font-size: 12px; color: #6b7280;">View:</span>
                         <button class="btn btn-sm" id="geViewTissue" style="background: #43a047; color: white;">By Tissue</button>
                         <button class="btn btn-sm btn-secondary" id="geViewHotspot">By Hotspot</button>
@@ -1916,7 +1938,7 @@
     <div class="modal-overlay" id="infographicModal" style="display: none;">
         <div class="modal" style="max-width: 90vw; max-height: 90vh; overflow: auto;">
             <div class="modal-header">
-                <h3>Gene Expression Correlation Explorer - Infographic</h3>
+                <h3>Gene Correlation Explorer - Infographic</h3>
                 <button class="modal-close" id="closeInfoGraphic">&times;</button>
             </div>
             <div class="modal-body" style="padding: 10px; text-align: center;">
@@ -1925,6 +1947,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=20260208a"></script>
+    <script src="app.js?v=20260223c"></script>
 </body>
 </html>
