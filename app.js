@@ -763,7 +763,7 @@ class CorrelationExplorer {
         document.getElementById('downloadNetworkSVG').addEventListener('click', () => this.downloadNetworkSVG());
         document.getElementById('downloadAllData').addEventListener('click', () => this.downloadAllData());
 
-        // Color by stats controls (mutually exclusive with GE)
+        // Color by stats controls (mutually exclusive with Expr)
         document.getElementById('colorByStats').addEventListener('change', (e) => {
             if (e.target.checked) {
                 // Uncheck color by expression
@@ -3052,8 +3052,8 @@ class CorrelationExplorer {
             if (isSynonym) {
                 titleLines.push(`(synonym of ${originalName})`);
             }
-            titleLines.push(`GE mean: ${cluster?.meanEffect || 'N/A'}`);
-            titleLines.push(`GE SD: ${cluster?.sdEffect || 'N/A'}`);
+            titleLines.push(`Expr mean: ${cluster?.meanEffect || 'N/A'}`);
+            titleLines.push(`Expr SD: ${cluster?.sdEffect || 'N/A'}`);
             if (geneStat?.lfc !== undefined && geneStat?.lfc !== null) {
                 titleLines.push(`LFC: ${geneStat.lfc.toFixed(3)}`);
             }
@@ -3098,8 +3098,8 @@ class CorrelationExplorer {
 
                     let titleLines = [gene];
                     if (isSynonym) titleLines.push(`(synonym of ${originalName})`);
-                    titleLines.push(`GE mean: ${isNaN(meanEffect) ? 'N/A' : meanEffect.toFixed(2)}`);
-                    titleLines.push(`GE SD: ${isNaN(sd) ? 'N/A' : sd.toFixed(2)}`);
+                    titleLines.push(`Expr mean: ${isNaN(meanEffect) ? 'N/A' : meanEffect.toFixed(2)}`);
+                    titleLines.push(`Expr SD: ${isNaN(sd) ? 'N/A' : sd.toFixed(2)}`);
                     titleLines.push('(no correlations found)');
 
                     nodes.push({
@@ -7850,11 +7850,11 @@ Results:
             thead.innerHTML = `<tr>
                 <th style="${headerStyle}" data-sort="group" data-type="string">Hotspot${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #2563eb;" data-sort="n0" data-type="number">n(0)${sortIcon}</th>
-                <th style="${headerStyle}" data-sort="mean0" data-type="number">GE(0)${sortIcon}</th>
+                <th style="${headerStyle}" data-sort="mean0" data-type="number">Expr(0)${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #f97316;" data-sort="n1" data-type="number">n(1)${sortIcon}</th>
-                <th style="${headerStyle}" data-sort="mean1" data-type="number">GE(1)${sortIcon}</th>
+                <th style="${headerStyle}" data-sort="mean1" data-type="number">Expr(1)${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #dc2626;" data-sort="n2" data-type="number">n(2)${sortIcon}</th>
-                <th style="${headerStyle}" data-sort="mean2" data-type="number">GE(2)${sortIcon}</th>
+                <th style="${headerStyle}" data-sort="mean2" data-type="number">Expr(2)${sortIcon}</th>
                 <th style="${headerStyle}; border-left: 2px solid #6b7280;" data-sort="diff" data-type="number">Δ Expr${sortIcon}</th>
                 <th style="${headerStyle}" data-sort="pValue" data-type="number">p-value${sortIcon}</th>
             </tr>`;
@@ -7939,7 +7939,7 @@ Results:
         // Helper to format stats annotation
         const formatStats = (stats, label) => {
             if (stats.n === 0) return `${label}: n=0`;
-            return `${label}: n=${stats.n}, GE=${stats.mean.toFixed(3)}, SD=${stats.sd.toFixed(3)}`;
+            return `${label}: n=${stats.n}, Expr=${stats.mean.toFixed(3)}, SD=${stats.sd.toFixed(3)}`;
         };
 
         if (mode === 'hotspot') {
@@ -8023,14 +8023,14 @@ Results:
             const pStr = !isNaN(pValue) ? (pValue < 0.001 ? pValue.toExponential(2) : pValue.toFixed(4)) : null;
 
             // Row 1: 0 (WT) stats
-            statsAnnotations.push(`0 (WT): n=${stats0.n}, GE=${stats0.mean.toFixed(3)}, SD=${stats0.sd.toFixed(3)}`);
+            statsAnnotations.push(`0 (WT): n=${stats0.n}, Expr=${stats0.mean.toFixed(3)}, SD=${stats0.sd.toFixed(3)}`);
             // Row 2: 1 mut stats
             if (stats1.n > 0) {
-                statsAnnotations.push(`1 mut: n=${stats1.n}, GE=${stats1.mean.toFixed(3)}${stats1.n > 1 ? `, SD=${stats1.sd.toFixed(3)}` : ''}`);
+                statsAnnotations.push(`1 mut: n=${stats1.n}, Expr=${stats1.mean.toFixed(3)}${stats1.n > 1 ? `, SD=${stats1.sd.toFixed(3)}` : ''}`);
             }
             // Row 3: 2 mut stats
             if (stats2.n > 0) {
-                statsAnnotations.push(`2 mut: n=${stats2.n}, GE=${stats2.mean.toFixed(3)}${stats2.n > 1 ? `, SD=${stats2.sd.toFixed(3)}` : ''}`);
+                statsAnnotations.push(`2 mut: n=${stats2.n}, Expr=${stats2.mean.toFixed(3)}${stats2.n > 1 ? `, SD=${stats2.sd.toFixed(3)}` : ''}`);
             }
             // Row 4: p-value
             if (pStr) {
@@ -8125,8 +8125,8 @@ Results:
 
         // Build stats as separate rows using <br> for proper line breaks
         const statsAnnotations = [];
-        statsAnnotations.push(`All cells: n=${allStats.n}, GE=${allStats.mean.toFixed(3)}, SD=${allStats.sd.toFixed(3)}`);
-        statsAnnotations.push(`${group}: n=${groupStats.n}, GE=${groupStats.mean.toFixed(3)}, SD=${groupStats.sd.toFixed(3)}`);
+        statsAnnotations.push(`All cells: n=${allStats.n}, Expr=${allStats.mean.toFixed(3)}, SD=${allStats.sd.toFixed(3)}`);
+        statsAnnotations.push(`${group}: n=${groupStats.n}, Expr=${groupStats.mean.toFixed(3)}, SD=${groupStats.sd.toFixed(3)}`);
         if (!isNaN(pValue)) {
             statsAnnotations.push(`p-value: ${pValue < 0.001 ? pValue.toExponential(2) : pValue.toFixed(4)}`);
         }
