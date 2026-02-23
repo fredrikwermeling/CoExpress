@@ -2892,7 +2892,7 @@ class CorrelationExplorer {
                 range: [-0.5, 2.5]
             },
             showlegend: false,
-            margin: { t: 100, r: 30, b: 50, l: 120 }
+            margin: { t: 100, r: 30, b: 50, l: 140 }
         };
 
         // Show modal
@@ -2940,8 +2940,8 @@ class CorrelationExplorer {
     downloadGeneEffectPNG() {
         Plotly.downloadImage('geneEffectPlot', {
             format: 'png',
-            width: 900,
-            height: 500,
+            width: 1000,
+            height: 550,
             filename: `expression_${this.currentGeneEffectGene}_${this.mutationResults.hotspotGene}`
         });
     }
@@ -2949,8 +2949,8 @@ class CorrelationExplorer {
     downloadGeneEffectSVG() {
         Plotly.downloadImage('geneEffectPlot', {
             format: 'svg',
-            width: 900,
-            height: 500,
+            width: 1000,
+            height: 550,
             filename: `expression_${this.currentGeneEffectGene}_${this.mutationResults.hotspotGene}`
         });
     }
