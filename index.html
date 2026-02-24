@@ -1621,7 +1621,7 @@
                         <button class="btn btn-secondary btn-sm" id="mutCompareByHotspotBtn" title="Check if other mutations also affect these top genes">Compare by Hotspot</button>
                         <button class="btn btn-sm" id="mutCompareCloseBtn" style="display: none; background: #43a047; color: white;" title="Close comparison table">✕ Close</button>
                     </div>
-                    <div id="mutationCompareTable" style="display: none; max-height: 500px; overflow-y: auto; margin-bottom: 15px;"></div>
+                    <div id="mutationCompareTable" style="display: none; max-height: 500px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #c7d2fe; border-radius: 8px; padding: 16px; background: #f8f9ff;"></div>
                     <div class="table-container" style="max-height: 600px; overflow-y: auto;">
                         <table class="data-table" id="mutationTable">
                             <thead>
@@ -1948,6 +1948,20 @@
                 <img src="https://raw.githubusercontent.com/fredrikwermeling/correlation-app/main/infographic.png" alt="Gene Correlation Explorer Infographic" style="max-width: 100%; height: auto;">
             </div>
         </div>
+    </div>
+
+    <!-- Compare Modal Overlay -->
+    <div id="mutCompareModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.5);">
+      <div style="position:absolute; inset:20px; background:white; border-radius:12px; display:flex; flex-direction:column; overflow:hidden;">
+        <div id="mutCompareModalHeader" style="padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <h3 id="mutCompareModalTitle" style="margin:0; flex:1;"></h3>
+          <label style="font-size:12px;">Min N: <input type="number" id="mutCompareMinN" value="5" min="1" max="50" style="width:50px; font-size:12px;"></label>
+          <button class="btn btn-outline btn-sm" id="mutCompareExtremeBtn">Extreme Values</button>
+          <button class="btn btn-sm" id="mutCompareModalClose" style="background:#ef4444; color:white;">✕ Close</button>
+        </div>
+        <div id="mutCompareModalInfo" style="padding:8px 20px; font-size:11px; color:#0c4a6e; background:#f0f9ff; border-bottom:1px solid #bae6fd;"></div>
+        <div id="mutCompareModalBody" style="flex:1; overflow:auto; padding:0;"></div>
+      </div>
     </div>
 
     <script src="app.js?v=20260223c"></script>
