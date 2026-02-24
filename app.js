@@ -110,7 +110,7 @@ class CorrelationExplorer {
 
         // Load binary expression data
         this.updateLoadingText('Loading expression matrix...');
-        await this.loadExpressions();
+        await this.loadGeneEffects();
 
         // Update reference status
         document.getElementById('referenceStatus').className = 'status-box status-success';
@@ -128,7 +128,7 @@ class CorrelationExplorer {
         this.populateTissueExcludeList();
     }
 
-    async loadExpressions() {
+    async loadGeneEffects() {
         const response = await fetch('web_data/expression.bin.gz');
         const compressedData = await response.arrayBuffer();
 
@@ -464,7 +464,7 @@ class CorrelationExplorer {
         // Set default min cell lines based on mode
         const minCellLinesInput = document.getElementById('minCellLines');
         if (isMutationMode) {
-            minCellLinesInput.value = '20';
+            minCellLinesInput.value = '10';
             this.populateMutationHotspotSelector();
         } else {
             minCellLinesInput.value = '50';
@@ -614,7 +614,7 @@ class CorrelationExplorer {
             <span id="tbSelectionCount" style="font-size: 11px; color: #6b7280;">0 selected</span>
             <div style="display: flex; gap: 6px;">
                 <button id="tbClearBtn" style="padding: 4px 12px; font-size: 12px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;">Clear</button>
-                <button id="tbApplyBtn" style="padding: 4px 12px; font-size: 12px; background: #43a047; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Apply Filter</button>
+                <button id="tbApplyBtn" style="padding: 4px 12px; font-size: 12px; background: #5a9f4a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Apply Filter</button>
             </div>
         </div>`;
 
@@ -712,6 +712,7 @@ class CorrelationExplorer {
             document.querySelectorAll('#tissueExcludeList input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
             });
+            // Remove override label
             const overrideLabel = lineageGroup?.querySelector('.tb-override-label');
             if (overrideLabel) overrideLabel.remove();
         } else if (selectedTissues.length === 1) {
@@ -746,7 +747,7 @@ class CorrelationExplorer {
             if (!overrideLabel && lineageGroup) {
                 overrideLabel = document.createElement('div');
                 overrideLabel.className = 'tb-override-label';
-                overrideLabel.style.cssText = 'font-size: 11px; color: #43a047; margin-top: 2px; cursor: pointer;';
+                overrideLabel.style.cssText = 'font-size: 11px; color: #5a9f4a; margin-top: 2px; cursor: pointer;';
                 overrideLabel.title = 'Click to clear tissue selection';
                 overrideLabel.addEventListener('click', () => {
                     this.applyTissueBreakdownSelection([]);
@@ -904,7 +905,7 @@ class CorrelationExplorer {
                     p.style.display = 'none';
                 });
                 tab.classList.add('active');
-                tab.style.background = '#43a047';
+                tab.style.background = '#5a9f4a';
                 tab.style.color = 'white';
                 const panel = document.getElementById('stats-' + tab.dataset.statsInput);
                 panel.classList.add('active');
@@ -968,7 +969,7 @@ class CorrelationExplorer {
             this.downloadSynonymsCSV();
         });
 
-        // Expression distribution modal
+        // Gene effect distribution modal
         document.getElementById('closeGeneEffect').addEventListener('click', () => {
             document.getElementById('geneEffectModal').style.display = 'none';
         });
@@ -1004,7 +1005,7 @@ class CorrelationExplorer {
         });
         document.getElementById('showGeneEffectSD').addEventListener('change', () => this.updateNetworkLabels());
 
-        // Color by expression controls (mutually exclusive with stats)
+        // Color by gene effect controls (mutually exclusive with stats)
         document.getElementById('colorByGeneEffect').addEventListener('change', (e) => {
             if (e.target.checked) {
                 // Uncheck color by stats
@@ -1022,10 +1023,10 @@ class CorrelationExplorer {
         document.getElementById('downloadNetworkSVG').addEventListener('click', () => this.downloadNetworkSVG());
         document.getElementById('downloadAllData').addEventListener('click', () => this.downloadAllData());
 
-        // Color by stats controls (mutually exclusive with Expr)
+        // Color by stats controls (mutually exclusive with GE)
         document.getElementById('colorByStats').addEventListener('change', (e) => {
             if (e.target.checked) {
-                // Uncheck color by expression
+                // Uncheck color by gene effect
                 document.getElementById('colorByGeneEffect').checked = false;
                 document.getElementById('colorGEOptions').style.display = 'none';
             }
@@ -1083,7 +1084,7 @@ class CorrelationExplorer {
                     this.closeInspectModal();
                     return;
                 }
-                // Close expression modal if open
+                // Close gene effect modal if open
                 const geneEffectModal = document.getElementById('geneEffectModal');
                 if (geneEffectModal && geneEffectModal.style.display !== 'none') {
                     geneEffectModal.style.display = 'none';
@@ -1165,34 +1166,7 @@ class CorrelationExplorer {
         document.getElementById('filterClustersToggle')?.addEventListener('click', () => this.toggleTableFilters('clustersTable'));
         document.getElementById('filterMutationToggle')?.addEventListener('click', () => this.toggleTableFilters('mutationTable'));
 
-        // Mutation analysis compare buttons (#16)
-        document.getElementById('mutCompareByTissueBtn')?.addEventListener('click', () => this.showMutationCompareByTissue());
-        document.getElementById('mutCompareByHotspotBtn')?.addEventListener('click', () => this.showMutationCompareByHotspot());
-        document.getElementById('mutCompareCloseBtn')?.addEventListener('click', () => {
-            document.getElementById('mutationCompareTable').style.display = 'none';
-            document.getElementById('mutCompareCloseBtn').style.display = 'none';
-        });
 
-        // Compare modal controls
-        document.getElementById('mutCompareModalClose')?.addEventListener('click', () => {
-            document.getElementById('mutCompareModal').style.display = 'none';
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && document.getElementById('mutCompareModal').style.display !== 'none') {
-                document.getElementById('mutCompareModal').style.display = 'none';
-            }
-        });
-        document.getElementById('mutCompareMinN')?.addEventListener('change', () => {
-            if (this._compareModalData) this.renderCompareModal();
-        });
-        document.getElementById('mutCompareExtremeBtn')?.addEventListener('click', () => {
-            this._compareExtremeMode = !this._compareExtremeMode;
-            const btn = document.getElementById('mutCompareExtremeBtn');
-            btn.style.background = this._compareExtremeMode ? '#7c3aed' : '';
-            btn.style.color = this._compareExtremeMode ? 'white' : '';
-            btn.style.borderColor = this._compareExtremeMode ? '#7c3aed' : '';
-            if (this._compareModalData) this.renderCompareModal();
-        });
 
         // Infographic modal
         document.getElementById('showInfoGraphic')?.addEventListener('click', () => {
@@ -1207,7 +1181,7 @@ class CorrelationExplorer {
             }
         });
 
-        // Expression modal controls
+        // Gene Effect modal controls
         document.getElementById('geneEffectSearchBtn')?.addEventListener('click', () => {
             const gene = document.getElementById('geneEffectSearch').value.trim().toUpperCase();
             if (!gene) return;
@@ -1230,7 +1204,7 @@ class CorrelationExplorer {
         });
         document.getElementById('geViewTissue')?.addEventListener('click', () => {
             if (this.geneEffectViewMode === 'mutation') {
-                // Switch from mutation inspect to full expression analysis
+                // Switch from mutation inspect to full gene effect analysis
                 const gene = document.getElementById('geneEffectSearch').value.trim().toUpperCase() || this.currentGeneEffectGene;
                 if (gene) this.openGeneEffectModal(gene, 'tissue');
             } else {
@@ -1250,6 +1224,60 @@ class CorrelationExplorer {
                 this.showGeneEffectDistribution(this.currentGeneEffectGene);
             } else {
                 this.switchGeneEffectView(this.currentGEView || 'tissue');
+            }
+        });
+        // Inspect-level hotspot filter
+        document.getElementById('geHotspotFilter')?.addEventListener('change', () => {
+            if (this.geneEffectViewMode === 'mutation' && this.currentGeneEffectGene) {
+                this.showGeneEffectDistribution(this.currentGeneEffectGene);
+            }
+        });
+        // Hotspot gene selector (Y axis mutation gene)
+        document.getElementById('geHotspotGeneSelect')?.addEventListener('change', () => {
+            if (this.geneEffectViewMode === 'mutation' && this.currentGeneEffectGene && this.mutationResults) {
+                const newHotspot = document.getElementById('geHotspotGeneSelect').value;
+                if (newHotspot && this.mutations.geneData[newHotspot]) {
+                    this.mutationResults.hotspotGene = newHotspot;
+                    this.showGeneEffectDistribution(this.currentGeneEffectGene);
+                }
+            }
+        });
+        // Inline compare buttons
+        document.getElementById('geCompareByTissueBtn')?.addEventListener('click', () => this.showInlineCompareByTissue());
+        document.getElementById('geCompareByHotspotBtn')?.addEventListener('click', () => this.showInlineCompareByHotspot());
+        document.getElementById('geInlineCompareClose')?.addEventListener('click', () => {
+            document.getElementById('geInlineCompareTable').style.display = 'none';
+        });
+        document.getElementById('geResetFiltersBtn')?.addEventListener('click', () => {
+            document.getElementById('geTissueFilter').value = '';
+            document.getElementById('geHotspotFilter').value = '';
+            // Clear analysis-level filters so inspect truly shows ALL cell lines
+            if (this.mutationResults) {
+                this.mutationResults.lineageFilter = '';
+                this.mutationResults.subLineageFilter = '';
+                this.mutationResults.excludedTissues = new Set();
+                this.mutationResults.additionalHotspot = '';
+                this.mutationResults.additionalHotspotLevel = 'all';
+            }
+            if (this.geneEffectViewMode === 'mutation' && this.currentGeneEffectGene) {
+                this.showGeneEffectDistribution(this.currentGeneEffectGene);
+            }
+        });
+        // Full-screen compare modal buttons
+        document.getElementById('mutCompareByTissueBtn')?.addEventListener('click', () => this.showMutationCompareByTissue());
+        document.getElementById('mutCompareByHotspotBtn')?.addEventListener('click', () => this.showMutationCompareByHotspot());
+        document.getElementById('mutCompareModalClose')?.addEventListener('click', () => {
+            document.getElementById('mutCompareModal').style.display = 'none';
+        });
+        document.getElementById('mutCompareMinN')?.addEventListener('change', () => {
+            if (this._compareModalMode && document.getElementById('mutCompareModal').style.display !== 'none') {
+                this.renderCompareModal();
+            }
+        });
+        document.getElementById('mutCompareExportCSV')?.addEventListener('click', () => this.downloadCompareCSV());
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('mutCompareModal')?.style.display !== 'none') {
+                document.getElementById('mutCompareModal').style.display = 'none';
             }
         });
         document.getElementById('geShowAllBtn')?.addEventListener('click', () => {
@@ -1960,10 +1988,15 @@ class CorrelationExplorer {
     }
 
     runMutationAnalysis() {
-        // Reset compare table
-        document.getElementById('mutationCompareTable').style.display = 'none';
-        document.getElementById('mutCompareCloseBtn').style.display = 'none';
-        document.getElementById('mutCompareModal').style.display = 'none';
+        // Reset inspect-level filters and close modals
+        const geTissueEl = document.getElementById('geTissueFilter');
+        if (geTissueEl) geTissueEl.value = '';
+        const geHotspotEl = document.getElementById('geHotspotFilter');
+        if (geHotspotEl) geHotspotEl.value = '';
+        document.getElementById('geneEffectModal').style.display = 'none';
+        document.getElementById('geInlineCompareTable').style.display = 'none';
+        this.currentGeneEffectGene = null;
+        this.geneEffectViewMode = null;
 
         const hotspotGene = document.getElementById('mutationHotspotSelect').value;
         const minN = parseInt(document.getElementById('minCellLines').value);
@@ -1992,6 +2025,11 @@ class CorrelationExplorer {
 
                 // Sort by p-value (1+2 vs 0)
                 significantResults.sort((a, b) => a.p_mut - b.p_mut);
+
+                // Close compare modal on new analysis
+                if (document.getElementById('mutCompareModal')) {
+                    document.getElementById('mutCompareModal').style.display = 'none';
+                }
 
                 this.mutationResults = {
                     hotspotGene,
@@ -2299,7 +2337,7 @@ class CorrelationExplorer {
         for (let geneIdx = 0; geneIdx < this.nGenes; geneIdx++) {
             const gene = this.geneNames[geneIdx];
 
-            // Get expression values for each group
+            // Get gene effect values for each group
             const wtEffects = this.getGeneEffectsForCells(geneIdx, wtCellIndices);
             const mutAllEffects = this.getGeneEffectsForCells(geneIdx, mutAllCellIndices);
             const mut2Effects = this.getGeneEffectsForCells(geneIdx, mut2CellIndices);
@@ -2563,6 +2601,7 @@ class CorrelationExplorer {
             settingsText += ` | Filter: ${mr.additionalHotspot} ${mr.additionalHotspotLevel}`;
         }
         if (mr.excludedTissues && mr.excludedTissues.size > 0) {
+            // Show included tissues (inverse of excluded) for clarity
             const allLineages = this.cellLineMetadata?.lineage
                 ? [...new Set(Object.values(this.cellLineMetadata.lineage))].sort()
                 : [];
@@ -2693,7 +2732,7 @@ class CorrelationExplorer {
         this.downloadFile(csv, filename, 'text/csv');
     }
 
-    showGeneEffectDistribution(gene, tissueOverride) {
+    showGeneEffectDistribution(gene, tissueOverride, inspectHotspotOverride) {
         if (!this.mutationResults) return;
 
         const mr = this.mutationResults;
@@ -2708,6 +2747,11 @@ class CorrelationExplorer {
 
         // Get tissue filter - use override if provided, otherwise read from dropdown
         const inspectTissueFilter = tissueOverride !== undefined ? tissueOverride : (document.getElementById('geTissueFilter')?.value || '');
+
+        // Compute inspect-level additional hotspot filter (from dropdown in inspect modal)
+        const inspectHotspot = inspectHotspotOverride !== undefined
+            ? inspectHotspotOverride
+            : (document.getElementById('geHotspotFilter')?.value || '');
 
         // Collect data for each cell line
         const cellLines = this.metadata.cellLines;
@@ -2748,6 +2792,15 @@ class CorrelationExplorer {
                 }
             }
 
+            // Check inspect-level additional hotspot filter
+            if (inspectHotspot) {
+                const inspHotData = this.mutations.geneData[inspectHotspot];
+                if (inspHotData) {
+                    const inspMutLevel = inspHotData.mutations[cellLine] || 0;
+                    if (inspMutLevel === 0) return; // Only show cells mutated (>=1) in the selected hotspot
+                }
+            }
+
             const ge = this.geneEffects[geneIdx * this.nCellLines + idx];
             if (isNaN(ge)) return;
 
@@ -2769,6 +2822,7 @@ class CorrelationExplorer {
 
         // Store current gene for downloads
         this.currentGeneEffectGene = gene;
+        this.currentInspectHotspot = inspectHotspot;
 
         // Create jitter for y-axis
         const jitter = (base, spread = 0.15) => base + (Math.random() - 0.5) * spread;
@@ -2895,6 +2949,9 @@ class CorrelationExplorer {
         if (mr.additionalHotspot && mr.additionalHotspotLevel !== 'all') {
             filterInfo.push(`${mr.additionalHotspot}: ${mr.additionalHotspotLevel}`);
         }
+        if (inspectHotspot) {
+            filterInfo.push(`Also ${inspectHotspot}-mutated`);
+        }
         const lineageText = filterInfo.length > 0 ? filterInfo.join(' | ') : 'All lineages';
 
         // Build stats text for subtitle
@@ -2911,7 +2968,7 @@ class CorrelationExplorer {
 
         const layout = {
             title: {
-                text: `${gene} Expression by ${hotspotGene} Mutation Status<br><sub style="font-size:11px;color:#666">${subtitle}</sub>`,
+                text: `${gene} Expression by ${hotspotGene} Mutation Status<br><sub style="font-size:10px;color:#666">${subtitle}</sub>`,
                 font: { size: 16 }
             },
             xaxis: {
@@ -2927,26 +2984,19 @@ class CorrelationExplorer {
                 automargin: true
             },
             showlegend: false,
-            margin: { t: 100, r: 30, b: 50, l: 30 }
+            margin: { t: 130, r: 30, b: 50, l: 30 }
         };
 
         // Show modal
         document.getElementById('geneEffectModal').style.display = 'flex';
         document.getElementById('geneEffectTitle').textContent = `${gene} Expression by ${hotspotGene} Mutation`;
 
-        // Populate tissue filter dropdown with available lineages
-        // Populate tissue filter dropdown with available lineages (respecting excluded tissues)
+        // Populate tissue filter dropdown with ALL lineages (inspect can override analysis filters)
         const tissueFilterEl = document.getElementById('geTissueFilter');
         if (tissueFilterEl) {
             const allLineages = [...new Set(cellLines.map(cl => this.cellLineMetadata?.lineage?.[cl]).filter(Boolean))].sort();
-            const visibleLineages = mr.excludedTissues && mr.excludedTissues.size > 0
-                ? allLineages.filter(l => !mr.excludedTissues.has(l))
-                : allLineages;
-            const defaultLabel = mr.excludedTissues && mr.excludedTissues.size > 0
-                ? `Filtered tissues (${visibleLineages.length})`
-                : 'All tissues';
-            tissueFilterEl.innerHTML = `<option value="">${defaultLabel}</option>`;
-            visibleLineages.forEach(l => {
+            tissueFilterEl.innerHTML = '<option value="">All tissues</option>';
+            allLineages.forEach(l => {
                 const opt = document.createElement('option');
                 opt.value = l;
                 opt.textContent = l;
@@ -2954,6 +3004,33 @@ class CorrelationExplorer {
             });
             tissueFilterEl.value = inspectTissueFilter;
         }
+
+        // Populate inspect-level hotspot filter dropdown
+        const hotspotFilterEl = document.getElementById('geHotspotFilter');
+        if (hotspotFilterEl && this.mutations?.genes) {
+            hotspotFilterEl.innerHTML = '<option value="">No hotspot filter</option>';
+            this.mutations.genes.forEach(g => {
+                if (g === hotspotGene) return; // Skip the main analysis hotspot
+                const opt = document.createElement('option');
+                opt.value = g; opt.textContent = g;
+                if (g === inspectHotspot) opt.selected = true;
+                hotspotFilterEl.appendChild(opt);
+            });
+        }
+
+        // Populate and show hotspot gene selector (Y axis mutation)
+        const hotspotGeneSelectEl = document.getElementById('geHotspotGeneSelect');
+        if (hotspotGeneSelectEl && this.mutations?.genes) {
+            hotspotGeneSelectEl.innerHTML = '';
+            this.mutations.genes.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                if (g === hotspotGene) opt.selected = true;
+                hotspotGeneSelectEl.appendChild(opt);
+            });
+        }
+        document.getElementById('geHotspotGeneGroup').style.display = '';
 
         // Show gene search bar so user can change the gene (#12)
         document.getElementById('geSearchBar').style.display = '';
@@ -2969,6 +3046,20 @@ class CorrelationExplorer {
         // Mark this as mutation analysis view
         this.geneEffectViewMode = 'mutation';
 
+        // Show mutation inspect controls, hide non-mutation view buttons
+        document.getElementById('geHotspotFilter').style.display = '';
+        document.getElementById('geCompareButtons').style.display = '';
+        document.getElementById('geResetFiltersBtn').style.display = '';
+        document.getElementById('geViewTissue').style.display = 'none';
+        document.getElementById('geViewHotspot').style.display = 'none';
+        // Hide the "View:" label too (previous sibling span)
+        const viewLabel = document.getElementById('geViewTissue').previousElementSibling;
+        if (viewLabel && viewLabel.textContent.trim() === 'View:') viewLabel.style.display = 'none';
+        if (!this._keepInlineCompare) {
+            document.getElementById('geInlineCompareTable').style.display = 'none';
+        }
+        this._keepInlineCompare = false;
+
         Plotly.newPlot('geneEffectPlot', traces, layout, { responsive: true });
     }
 
@@ -2978,7 +3069,7 @@ class CorrelationExplorer {
         if (!plotEl || !plotEl.data) return;
         const exportWidth = 1200;
         const exportHeight = 600;
-        const filename = `expression_${this.currentGeneEffectGene}_${this.mutationResults.hotspotGene}`;
+        const filename = `gene_effect_${this.currentGeneEffectGene}_${this.mutationResults.hotspotGene}`;
 
         // Deep-copy data and layout from live chart
         const data = JSON.parse(JSON.stringify(plotEl.data));
@@ -3057,7 +3148,7 @@ class CorrelationExplorer {
             csv += `${d.cellLine},${d.cellName},${d.lineage},${d.ge.toFixed(2)},${d.mutLevel}\n`;
         });
 
-        const filename = `expression_${this.currentGeneEffectGene}_${mr.hotspotGene}_data.csv`;
+        const filename = `gene_effect_${this.currentGeneEffectGene}_${mr.hotspotGene}_data.csv`;
         this.downloadFile(csv, filename, 'text/csv');
     }
 
@@ -3441,7 +3532,7 @@ class CorrelationExplorer {
                 font: { size: fontSize, color: '#333' },
                 color: {
                     background: this.results.mode === 'design' ?
-                        (isInput ? '#43a047' : '#a5d6a7') : '#43a047',
+                        (isInput ? '#5a9f4a' : '#a8d89a') : '#5a9f4a',
                     border: '#ffffff'
                 },
                 borderWidth: 2,
@@ -3639,12 +3730,12 @@ class CorrelationExplorer {
             this.hideGeneTooltip();
         });
 
-        // Double-click to open Expression (node) or Inspect (edge)
+        // Double-click to open Gene Effect (node) or Inspect (edge)
         this.network.on('doubleClick', (params) => {
             clearTimeout(this._networkTooltipTimer);
             this.hideGeneTooltip();
             if (params.nodes.length > 0) {
-                // Node double-clicked - open Expression analysis
+                // Node double-clicked - open Gene Effect analysis
                 const nodeId = params.nodes[0];
                 this.openGeneEffectFromNetwork(nodeId);
             } else if (params.edges.length > 0) {
@@ -3677,7 +3768,7 @@ class CorrelationExplorer {
                             id: nodeId,
                             color: {
                                 background: this.results.mode === 'design' ?
-                                    (isInput ? '#43a047' : '#a5d6a7') : '#43a047',
+                                    (isInput ? '#5a9f4a' : '#a8d89a') : '#5a9f4a',
                                 border: '#ffffff'
                             }
                         });
@@ -3721,8 +3812,8 @@ class CorrelationExplorer {
         if (this.results.mode === 'design') {
             legendNodeType.innerHTML = `
                 <strong>Node Type:</strong>
-                <span class="legend-item"><span class="legend-dot" style="background: #43a047;"></span> Input</span>
-                <span class="legend-item"><span class="legend-dot" style="background: #a5d6a7;"></span> Correlated</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #5a9f4a;"></span> Input</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #a8d89a;"></span> Correlated</span>
             `;
             legendNodeType.style.display = 'block';
         } else {
@@ -3833,7 +3924,7 @@ class CorrelationExplorer {
                     <td>${c.n}</td>
                     <td>${c.cluster}</td>
                     <td style="white-space: nowrap;">
-                        <button class="btn btn-sm inspect-btn" style="padding: 2px 6px; font-size: 10px; background: #43a047; color: white;" data-gene1="${c.gene1}" data-gene2="${c.gene2}">Correlate</button>
+                        <button class="btn btn-sm inspect-btn" style="padding: 2px 6px; font-size: 10px; background: #5a9f4a; color: white;" data-gene1="${c.gene1}" data-gene2="${c.gene2}">Correlate</button>
                         <button class="btn btn-sm tissue-btn" style="padding: 2px 6px; font-size: 10px; margin-left: 4px; background: #6b7280; color: white;" data-gene1="${c.gene1}" data-gene2="${c.gene2}">By Tissue</button>
                     </td>
                 `;
@@ -3990,7 +4081,7 @@ class CorrelationExplorer {
                 // Add analyze buttons
                 rowHtml += `
                     <td style="text-align: center; white-space: nowrap;">
-                        <button class="btn btn-sm tissue-btn" style="padding: 2px 6px; font-size: 10px; background: #43a047; color: white;" data-gene="${c.gene}">By Tissue</button>
+                        <button class="btn btn-sm tissue-btn" style="padding: 2px 6px; font-size: 10px; background: #5a9f4a; color: white;" data-gene="${c.gene}">By Tissue</button>
                         <button class="btn btn-sm hotspot-btn" style="padding: 2px 6px; font-size: 10px; margin-left: 4px; background: #6b7280; color: white;" data-gene="${c.gene}">By Hotspot</button>
                     </td>
                 `;
@@ -4324,7 +4415,7 @@ Results:
             ctx.font = textFont;
 
             // Input gene
-            ctx.fillStyle = '#43a047';
+            ctx.fillStyle = '#5a9f4a';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 25, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -4332,7 +4423,7 @@ Results:
             ctx.fillText('Input', legendX + 28, legendY + 30);
 
             // Correlated gene
-            ctx.fillStyle = '#a5d6a7';
+            ctx.fillStyle = '#a8d89a';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 52, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -4342,7 +4433,7 @@ Results:
             legendX += 140;
         }
 
-        // Color by Expression legend
+        // Color by Gene Effect legend
         const colorByGeneEffect = document.getElementById('colorByGeneEffect').checked;
         if (colorByGeneEffect && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
@@ -4576,7 +4667,7 @@ Results:
         this.networkData.nodes.forEach(node => {
             const pos = domPositions[node.id];
             if (pos) {
-                const bgColor = node.color?.background || '#43a047';
+                const bgColor = node.color?.background || '#5a9f4a';
                 svg += `  <circle cx="${pos.x}" cy="${pos.y}" r="${nodeSize/2}" fill="${bgColor}" stroke="white" stroke-width="${2 * scale}"/>\n`;
 
                 // Handle multi-line labels
@@ -4635,15 +4726,15 @@ Results:
         // Node type legend (for design mode)
         if (this.results?.mode === 'design') {
             svg += `  <text x="${legendX}" y="${legendY}" class="legend-title">Node Type:</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#43a047"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#5a9f4a"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 30}" class="legend-text">Input</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a5d6a7"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a8d89a"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 57}" class="legend-text">Correlated</text>\n`;
 
             legendX += 140;
         }
 
-        // Color by Expression legend
+        // Color by Gene Effect legend
         const colorByGeneEffect = document.getElementById('colorByGeneEffect').checked;
         if (colorByGeneEffect && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
@@ -4837,7 +4928,7 @@ Results:
             const baseName = node.isSynonym ? `${node.id}*` : node.id;
             let label = baseName;
 
-            // Add expression if checked
+            // Add gene effect if checked
             if (showGE && cluster) {
                 if (showSD && cluster.sdEffect) {
                     label = `${baseName}\n(Expr:${cluster.meanEffect}±${cluster.sdEffect})`;
@@ -4875,7 +4966,7 @@ Results:
         const colorLegend = document.getElementById('nodeColorLegendContent');
         const legendSection = document.getElementById('legendNodeColor');
 
-        // Color by expression (from DepMap data) - takes precedence
+        // Color by gene effect (from DepMap data) - takes precedence
         if (colorByGeneEffect && this.results?.clusters) {
             if (legendSection) legendSection.style.display = 'block';
 
@@ -4915,7 +5006,7 @@ Results:
                     </div>
                 `;
             } else {
-                // Absolute expression
+                // Absolute gene effect
                 const maxAbsEffect = Math.max(...effectValues.map(v => Math.abs(v)));
 
                 this.networkData.nodes.forEach(node => {
@@ -4955,7 +5046,7 @@ Results:
                     id: node.id,
                     color: {
                         background: this.results?.mode === 'design' ?
-                            (isInput ? '#43a047' : '#a5d6a7') : '#43a047',
+                            (isInput ? '#5a9f4a' : '#a8d89a') : '#5a9f4a',
                         border: '#ffffff'
                     }
                 });
@@ -5187,7 +5278,7 @@ Results:
                 id: nodeId,
                 color: {
                     background: this.results?.mode === 'design' ?
-                        (isInput ? '#43a047' : '#a5d6a7') : '#43a047',
+                        (isInput ? '#5a9f4a' : '#a8d89a') : '#5a9f4a',
                     border: '#ffffff'
                 }
             });
@@ -5569,7 +5660,7 @@ Results:
             ctx.font = textFont;
 
             // Input gene
-            ctx.fillStyle = '#43a047';
+            ctx.fillStyle = '#5a9f4a';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 25, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -5577,7 +5668,7 @@ Results:
             ctx.fillText('Input', legendX + 28, legendY + 30);
 
             // Correlated gene
-            ctx.fillStyle = '#a5d6a7';
+            ctx.fillStyle = '#a8d89a';
             ctx.beginPath();
             ctx.arc(legendX + 12, legendY + 52, 10, 0, Math.PI * 2);
             ctx.fill();
@@ -5587,7 +5678,7 @@ Results:
             legendX += 140;
         }
 
-        // Color by Expression legend
+        // Color by Gene Effect legend
         const colorByGeneEffect = document.getElementById('colorByGeneEffect').checked;
         if (colorByGeneEffect && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
@@ -5813,7 +5904,7 @@ Results:
         this.networkData.nodes.forEach(node => {
             const pos = domPositions[node.id];
             if (pos) {
-                const bgColor = node.color?.background || '#43a047';
+                const bgColor = node.color?.background || '#5a9f4a';
                 svg += `  <circle cx="${pos.x}" cy="${pos.y}" r="${nodeSize/2}" fill="${bgColor}" stroke="white" stroke-width="${2 * scale}"/>\n`;
 
                 // Handle multi-line labels
@@ -5871,15 +5962,15 @@ Results:
         // Node type legend (for design mode)
         if (this.results?.mode === 'design') {
             svg += `  <text x="${legendX}" y="${legendY}" class="legend-title">Node Type:</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#43a047"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 25}" r="10" fill="#5a9f4a"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 30}" class="legend-text">Input</text>\n`;
-            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a5d6a7"/>\n`;
+            svg += `  <circle cx="${legendX + 12}" cy="${legendY + 52}" r="10" fill="#a8d89a"/>\n`;
             svg += `  <text x="${legendX + 28}" y="${legendY + 57}" class="legend-text">Correlated</text>\n`;
 
             legendX += 140;
         }
 
-        // Color by Expression legend
+        // Color by Gene Effect legend
         const colorByGeneEffect = document.getElementById('colorByGeneEffect').checked;
         if (colorByGeneEffect && this.results?.clusters) {
             const colorGEType = document.querySelector('input[name="colorGEType"]:checked')?.value || 'signed';
@@ -6455,7 +6546,7 @@ Results:
                 y: [allStats.slope * xRange[0] + intercept, allStats.slope * xRange[1] + intercept],
                 mode: 'lines',
                 type: 'scatter',
-                line: { color: '#43a047', width: 3 },
+                line: { color: '#5a9f4a', width: 3 },
                 fill: 'none',
                 name: 'Regression',
                 showlegend: false
@@ -6623,9 +6714,9 @@ Results:
             }
         };
 
-        addRegressionLine(wt, wtStats, 'x', 'y', '#43a047');
-        addRegressionLine(mut1, mut1Stats, 'x2', 'y2', '#43a047');
-        addRegressionLine(mut2, mut2Stats, 'x3', 'y3', '#43a047');
+        addRegressionLine(wt, wtStats, 'x', 'y', '#5a9f4a');
+        addRegressionLine(mut1, mut1Stats, 'x2', 'y2', '#5a9f4a');
+        addRegressionLine(mut2, mut2Stats, 'x3', 'y3', '#5a9f4a');
 
         // Add highlighted cells for each panel
         const addHighlights = (data, xaxis, yaxis) => {
@@ -6806,8 +6897,8 @@ Results:
         `;
 
         tableData.forEach(row => {
-            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#43a047';
-            const deltaSlopeColor = row.deltaSlope < 0 ? '#dc2626' : '#43a047';
+            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#5a9f4a';
+            const deltaSlopeColor = row.deltaSlope < 0 ? '#dc2626' : '#5a9f4a';
 
             html += `
                 <tr class="clickable-row" data-lineage="${row.lineage}" style="cursor: pointer;" title="Click to view ${row.lineage} scatter plot with ${hotspotGene} overlay">
@@ -7020,7 +7111,7 @@ Results:
         `;
 
         tableData.forEach(row => {
-            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#43a047';
+            const deltaRColor = row.deltaR < 0 ? '#dc2626' : '#5a9f4a';
             const pHighlight = row.pR < 0.05 ? 'background: #fef3c7;' : '';
 
             html += `
@@ -7161,7 +7252,7 @@ Results:
                 const yVals = data.map(d => d.y);
                 const stats = this.pearsonWithSlope(xVals, yVals);
 
-                // Calculate mean expressions
+                // Calculate mean gene effects
                 const meanX = xVals.reduce((a, b) => a + b, 0) / xVals.length;
                 const meanY = yVals.reduce((a, b) => a + b, 0) / yVals.length;
 
@@ -7437,15 +7528,15 @@ Results:
             <div style="max-height: 500px; overflow-y: auto;">
             <table id="byTissueTable" style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
-                    <tr style="background-color: #43a047; color: white;">
-                        <th data-col="0" style="padding: 6px; border: 1px solid #43a047; text-align: left; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">Lineage ▼</th>
-                        <th data-col="1" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">N</th>
-                        <th data-col="2" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">Corr</th>
-                        <th data-col="3" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">Slope</th>
-                        <th data-col="4" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene1} (mean)</th>
-                        <th data-col="5" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene1} (SD)</th>
-                        <th data-col="6" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene2} (mean)</th>
-                        <th data-col="7" style="padding: 6px; border: 1px solid #43a047; text-align: center; position: sticky; top: 0; background-color: #43a047; cursor: pointer;">${gene2} (SD)</th>
+                    <tr style="background-color: #5a9f4a; color: white;">
+                        <th data-col="0" style="padding: 6px; border: 1px solid #5a9f4a; text-align: left; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">Lineage ▼</th>
+                        <th data-col="1" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">N</th>
+                        <th data-col="2" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">Corr</th>
+                        <th data-col="3" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">Slope</th>
+                        <th data-col="4" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene1} (mean)</th>
+                        <th data-col="5" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene1} (SD)</th>
+                        <th data-col="6" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene2} (mean)</th>
+                        <th data-col="7" style="padding: 6px; border: 1px solid #5a9f4a; text-align: center; position: sticky; top: 0; background-color: #5a9f4a; cursor: pointer;">${gene2} (SD)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -7716,7 +7807,7 @@ Results:
     }
 
     // ============================================================
-    // Expression Modal Methods
+    // Gene Effect Modal Methods
     // ============================================================
 
     openGeneEffectModal(gene, view = 'tissue') {
@@ -7733,7 +7824,7 @@ Results:
         };
         this.currentGEView = view;
 
-        // Get expression data for all cell lines
+        // Get gene effect data for all cell lines
         const geneIdx = this.geneIndex.get(geneUpper);
         const geneData = this.getGeneData(geneIdx);
 
@@ -7784,8 +7875,21 @@ Results:
         document.getElementById('geTableContainer').style.display = '';
         document.getElementById('geChartContainer').style.flex = '0 0 55%';
 
-        // Mark this as regular expression view
+        // Mark this as regular gene effect view
         this.geneEffectViewMode = 'geneEffect';
+
+        // Hide mutation inspect controls
+        document.getElementById('geHotspotFilter').style.display = 'none';
+        document.getElementById('geCompareButtons').style.display = 'none';
+        document.getElementById('geResetFiltersBtn').style.display = 'none';
+        document.getElementById('geInlineCompareTable').style.display = 'none';
+        document.getElementById('geHotspotGeneGroup').style.display = 'none';
+
+        // Restore view buttons (may have been hidden by mutation inspect)
+        document.getElementById('geViewTissue').style.display = '';
+        document.getElementById('geViewHotspot').style.display = '';
+        const viewLabel = document.getElementById('geViewTissue').previousElementSibling;
+        if (viewLabel && viewLabel.textContent.trim() === 'View:') viewLabel.style.display = '';
 
         // Show modal
         document.getElementById('geneEffectModal').style.display = 'flex';
@@ -7811,7 +7915,7 @@ Results:
         const statsExplanation = document.getElementById('geStatsExplanationText');
 
         if (view === 'tissue') {
-            tissueBtn.style.background = '#43a047';
+            tissueBtn.style.background = '#5a9f4a';
             tissueBtn.style.color = 'white';
             tissueBtn.classList.remove('btn-secondary');
             hotspotBtn.style.background = '';
@@ -7822,7 +7926,7 @@ Results:
             if (statsExplanation) statsExplanation.textContent = "p-values: Welch's t-test comparing each cancer type vs all other cell lines.";
             this.renderGeneEffectByTissue();
         } else {
-            hotspotBtn.style.background = '#43a047';
+            hotspotBtn.style.background = '#5a9f4a';
             hotspotBtn.style.color = 'white';
             hotspotBtn.classList.remove('btn-secondary');
             tissueBtn.style.background = '';
@@ -7870,7 +7974,7 @@ Results:
         const data = this.getGETissueFilteredData();
         const gene = this.currentGeneEffect.gene;
 
-        // Get all expressions for comparison
+        // Get all gene effects for comparison
         const allEffects = data.map(d => d.geneEffect);
 
         // Group data by cancer type (keep full data for box plots)
@@ -7908,7 +8012,7 @@ Results:
             }
         });
 
-        // Sort by median expression for chart display
+        // Sort by median gene effect for chart display
         stats.sort((a, b) => a.mean - b.mean);
         this.currentGEStats = stats;
 
@@ -8487,7 +8591,7 @@ Results:
                     color: groupEffects.map(v => v < -0.5 ? '#dc2626' : v > 0 ? '#16a34a' : '#6b7280'),
                     size: 6
                 },
-                line: { color: '#43a047', width: 2 },
+                line: { color: '#5a9f4a', width: 2 },
                 fillcolor: 'rgba(90, 159, 74, 0.4)',
                 hovertemplate: '<b>%{text}</b><br>Expression: %{y:.3f}<extra>' + group + '</extra>'
             }
@@ -8598,6 +8702,7 @@ Results:
     }
 
     downloadGeneEffectChartPNG() {
+        // Mutation inspect mode handled by downloadGeneEffectPNG
         if (this.geneEffectViewMode === 'mutation') return;
         if (!this.currentGeneEffect) return;
         const plotId = this.currentGEView === 'tissue' ? 'geneEffectPlot' : 'geneEffectHotspotPlot';
@@ -8608,11 +8713,12 @@ Results:
             format: 'png',
             width: chartWidth,
             height: chartHeight,
-            filename: `expression_${this.currentGeneEffect.gene}_by_${this.currentGEView}`
+            filename: `gene_effect_${this.currentGeneEffect.gene}_by_${this.currentGEView}`
         });
     }
 
     downloadGeneEffectChartSVG() {
+        // Mutation inspect mode handled by downloadGeneEffectSVG
         if (this.geneEffectViewMode === 'mutation') return;
         if (!this.currentGeneEffect) return;
         const plotId = this.currentGEView === 'tissue' ? 'geneEffectPlot' : 'geneEffectHotspotPlot';
@@ -8623,7 +8729,7 @@ Results:
             format: 'svg',
             width: chartWidth,
             height: chartHeight,
-            filename: `expression_${this.currentGeneEffect.gene}_by_${this.currentGEView}`
+            filename: `gene_effect_${this.currentGeneEffect.gene}_by_${this.currentGEView}`
         });
     }
 
@@ -8650,7 +8756,7 @@ Results:
             });
         }
 
-        this.downloadFile(csv, `expression_${gene}_by_${this.currentGEView}.csv`, 'text/csv');
+        this.downloadFile(csv, `gene_effect_${gene}_by_${this.currentGEView}.csv`, 'text/csv');
     }
 
     downloadGECellLineCSV() {
@@ -8658,12 +8764,12 @@ Results:
         if (this.geneEffectViewMode === 'mutation' && this.currentGeneEffectData && this.currentGeneEffectGene) {
             const mr = this.mutationResults;
             const gene = this.currentGeneEffectGene;
-            let csv = 'Cell_Line_ID,Cell_Line_Name,Cancer_Type,Cancer_Subtype,Expression,Mutation_Level\n';
+            let csv = 'Cell_Line_ID,Cell_Line_Name,Cancer_Type,Cancer_Subtype,Gene_Effect,Mutation_Level\n';
             this.currentGeneEffectData.forEach(d => {
                 const subtype = this.getCellLineSublineage?.(d.cellLine) || '';
                 csv += `"${d.cellLine}","${d.cellName}","${d.lineage}","${subtype}",${d.ge.toFixed(2)},${d.mutLevel}\n`;
             });
-            this.downloadFile(csv, `expression_${gene}_${mr.hotspotGene}_by_cell_line.csv`, 'text/csv');
+            this.downloadFile(csv, `gene_effect_${gene}_${mr.hotspotGene}_by_cell_line.csv`, 'text/csv');
             return;
         }
 
@@ -8680,7 +8786,7 @@ Results:
             csv += `"${d.cellLineId}","${d.cellLineName}","${d.lineage}","${subtype}",${d.geneEffect.toFixed(2)}\n`;
         });
 
-        this.downloadFile(csv, `expression_${gene}_by_cell_line.csv`, 'text/csv');
+        this.downloadFile(csv, `gene_effect_${gene}_by_cell_line.csv`, 'text/csv');
     }
 
     getCellLineSublineage(cellLineId) {
@@ -8746,7 +8852,7 @@ Results:
     showCopyNotification(message) {
         const notification = document.createElement('div');
         notification.textContent = message;
-        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #43a047; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; z-index: 10000; transition: opacity 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
+        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #5a9f4a; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; z-index: 10000; transition: opacity 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
         document.body.appendChild(notification);
         setTimeout(() => {
             notification.style.opacity = '0';
@@ -8784,7 +8890,8 @@ Results:
         const numericSortKeys = [
             'correlation', 'slope', 'n', 'cluster',
             'meanEffect', 'sdEffect', 'meanEffectFiltered', 'sdEffectFiltered',
-            'lfc', 'fdr', 'hasCorrelation'
+            'lfc', 'fdr', 'hasCorrelation',
+            'r', 'p'
         ];
         const numericColKeys = [
             'n_wt', 'mean_wt', 'n_mut', 'mean_mut', 'diff_mut', 'p_mut',
@@ -8925,7 +9032,7 @@ Results:
                 return;
             }
 
-            let html = `<div style="margin-bottom: 4px;"><b style="color: #43a047; font-size: 13px;">${info.symbol}</b> <span style="color: #374151;">${info.name}</span></div>`;
+            let html = `<div style="margin-bottom: 4px;"><b style="color: #5a9f4a; font-size: 13px;">${info.symbol}</b> <span style="color: #374151;">${info.name}</span></div>`;
 
             if (info.summary) {
                 const shortSummary = info.summary.length > 200 ? info.summary.substring(0, 200) + '...' : info.summary;
@@ -8947,229 +9054,240 @@ Results:
         if (existing) existing.remove();
     }
 
-    // ===== Mutation Analysis Compare by Tissue/Hotspot (#16) =====
+    // ===== Inline Compare by Tissue/Hotspot (in inspect modal) =====
 
-    showMutationCompareByTissue() {
-        if (!this.mutationResults) return;
+    showInlineCompareByTissue() {
+        if (!this.mutationResults || !this.currentGeneEffectGene) return;
+        this._inlineSortCol = null;
+        this._inlineSortAsc = true;
         const mr = this.mutationResults;
+        const gene = this.currentGeneEffectGene;
         const hotspotGene = mr.hotspotGene;
         const mutationData = this.mutations.geneData[hotspotGene];
         if (!mutationData) return;
 
+        const geneIdx = this.geneIndex.get(gene.toUpperCase());
+        if (geneIdx === undefined) return;
+
         const cellLines = this.metadata.cellLines;
+        const inspectHotspot = document.getElementById('geHotspotFilter')?.value || '';
+
+        // Gather cell lines respecting all filters
         const lineageMap = {};
         const allWT = [], allMut = [];
         cellLines.forEach((cellLine, idx) => {
             if (mr.lineageFilter && this.cellLineMetadata?.lineage?.[cellLine] !== mr.lineageFilter) return;
             if (mr.subLineageFilter && this.cellLineMetadata?.primaryDisease?.[cellLine] !== mr.subLineageFilter) return;
-            if (this.excludedTissues && this.excludedTissues.size > 0) {
+            if (mr.excludedTissues && mr.excludedTissues.size > 0) {
                 const lineage = this.cellLineMetadata?.lineage?.[cellLine];
-                if (lineage && this.excludedTissues.has(lineage)) return;
+                if (lineage && mr.excludedTissues.has(lineage)) return;
             }
-            const lineage = this.cellLineMetadata?.lineage?.[cellLine] || 'Unknown';
-            if (!lineageMap[lineage]) lineageMap[lineage] = { wt: [], mut: [] };
-            const mutLevel = mutationData.mutations[cellLine] || 0;
-            if (mutLevel === 0) { lineageMap[lineage].wt.push(idx); allWT.push(idx); }
-            else { lineageMap[lineage].mut.push(idx); allMut.push(idx); }
-        });
-
-        const genes = mr.significantResults.map(r => r.gene);
-        if (genes.length === 0) { alert('No significant genes to compare.'); return; }
-
-        // Build column data: each column is a tissue
-        const columns = [];
-        columns.push({ label: 'All', wtIdx: allWT, mutIdx: allMut, isAll: true });
-        Object.entries(lineageMap).forEach(([lineage, groups]) => {
-            columns.push({ label: lineage, wtIdx: groups.wt, mutIdx: groups.mut, tissue: lineage });
-        });
-
-        // Calculate matrix: genes × columns → delta
-        const matrix = {};
-        genes.forEach(gene => {
-            const geneIdx = this.geneIndex.get(gene);
-            if (geneIdx === undefined) return;
-            const geneData = this.getGeneData(geneIdx);
-            matrix[gene] = {};
-            columns.forEach(col => {
-                const wtEffects = col.wtIdx.map(i => geneData[i]).filter(v => !isNaN(v));
-                const mutEffects = col.mutIdx.map(i => geneData[i]).filter(v => !isNaN(v));
-                if (wtEffects.length >= 1 && mutEffects.length >= 1) {
-                    const meanWT = wtEffects.reduce((a, b) => a + b, 0) / wtEffects.length;
-                    const meanMut = mutEffects.reduce((a, b) => a + b, 0) / mutEffects.length;
-                    matrix[gene][col.label] = { delta: meanMut - meanWT, nWT: wtEffects.length, nMut: mutEffects.length };
+            if (mr.additionalHotspot && mr.additionalHotspotLevel !== 'all') {
+                const addMutData = this.mutations.geneData[mr.additionalHotspot];
+                if (addMutData) {
+                    const addMutLevel = addMutData.mutations[cellLine] || 0;
+                    if (mr.additionalHotspotLevel === '0' && addMutLevel !== 0) return;
+                    if (mr.additionalHotspotLevel === '1' && addMutLevel !== 1) return;
+                    if (mr.additionalHotspotLevel === '2' && addMutLevel < 2) return;
+                    if (mr.additionalHotspotLevel === '1+2' && addMutLevel === 0) return;
                 }
-            });
+            }
+            if (inspectHotspot) {
+                const inspHotData = this.mutations.geneData[inspectHotspot];
+                if (inspHotData) {
+                    const inspMutLevel = inspHotData.mutations[cellLine] || 0;
+                    if (inspMutLevel === 0) return;
+                }
+            }
+
+            const ge = this.geneEffects[geneIdx * this.nCellLines + idx];
+            if (isNaN(ge)) return;
+
+            const lineage = this.cellLineMetadata?.lineage?.[cellLine] || 'Unknown';
+            const mutLevel = mutationData.mutations[cellLine] || 0;
+            if (!lineageMap[lineage]) lineageMap[lineage] = { wt: [], mut: [] };
+            if (mutLevel === 0) { lineageMap[lineage].wt.push(ge); allWT.push(ge); }
+            else { lineageMap[lineage].mut.push(ge); allMut.push(ge); }
         });
 
-        this._compareModalData = { mode: 'tissue', title: `${hotspotGene} mutation effect by Cancer Type`, info: `For each cancer type, Δ = mean mutated − mean WT expression for all ${genes.length} significant genes. <b>Red</b> = lower expression in mutated cells, <b>green</b> = higher. Click a cell to inspect.`, genes, columns, matrix };
-        this._compareExtremeMode = false;
-        const btn = document.getElementById('mutCompareExtremeBtn');
-        btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
-        this.renderCompareModal();
-        document.getElementById('mutCompareModal').style.display = 'block';
+        // Build rows
+        const rows = [];
+        if (allWT.length > 0 && allMut.length > 0) {
+            const meanWT = allWT.reduce((a, b) => a + b, 0) / allWT.length;
+            const meanMut = allMut.reduce((a, b) => a + b, 0) / allMut.length;
+            rows.push({ label: 'All', nWT: allWT.length, nMut: allMut.length, delta: meanMut - meanWT, isAll: true, tissue: '' });
+        }
+        Object.entries(lineageMap).forEach(([lineage, groups]) => {
+            if (groups.wt.length > 0 && groups.mut.length > 0) {
+                const meanWT = groups.wt.reduce((a, b) => a + b, 0) / groups.wt.length;
+                const meanMut = groups.mut.reduce((a, b) => a + b, 0) / groups.mut.length;
+                rows.push({ label: lineage, nWT: groups.wt.length, nMut: groups.mut.length, delta: meanMut - meanWT, tissue: lineage });
+            }
+        });
+
+        const allRow = rows.filter(r => r.isAll);
+        const otherRows = rows.filter(r => !r.isAll).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+        this._inlineCompareData = { title: `${gene} — Δ Expr by Tissue (${hotspotGene} WT vs Mut)`, headers: ['Tissue', 'N(WT)', 'N(Mut)', 'Δ Expr'], refRows: allRow, sortableRows: otherRows, mode: 'tissue' };
+        this._renderInlineCompareTable();
     }
 
-    showMutationCompareByHotspot() {
-        if (!this.mutationResults) return;
+    showInlineCompareByHotspot() {
+        if (!this.mutationResults || !this.currentGeneEffectGene) return;
+        this._inlineSortCol = null;
+        this._inlineSortAsc = true;
         const mr = this.mutationResults;
+        const gene = this.currentGeneEffectGene;
         const mainHotspot = mr.hotspotGene;
+        const mainMutData = this.mutations.geneData[mainHotspot];
+        if (!mainMutData) return;
 
-        const genes = mr.significantResults.map(r => r.gene);
-        if (genes.length === 0) { alert('No significant genes to compare.'); return; }
+        const geneIdx = this.geneIndex.get(gene.toUpperCase());
+        if (geneIdx === undefined) return;
 
         const cellLines = this.metadata.cellLines;
-        const filteredIndices = [];
+        const tissueFilter = document.getElementById('geTissueFilter')?.value || '';
+
+        const baseCells = [];
         cellLines.forEach((cellLine, idx) => {
-            if (mr.lineageFilter && this.cellLineMetadata?.lineage?.[cellLine] !== mr.lineageFilter) return;
-            if (mr.subLineageFilter && this.cellLineMetadata?.primaryDisease?.[cellLine] !== mr.subLineageFilter) return;
-            if (this.excludedTissues && this.excludedTissues.size > 0) {
-                const lineage = this.cellLineMetadata?.lineage?.[cellLine];
-                if (lineage && this.excludedTissues.has(lineage)) return;
+            if (tissueFilter) {
+                const lineage = this.cellLineMetadata?.lineage?.[cellLine] || '';
+                if (lineage !== tissueFilter) return;
+            } else {
+                if (mr.lineageFilter && this.cellLineMetadata?.lineage?.[cellLine] !== mr.lineageFilter) return;
+                if (mr.excludedTissues && mr.excludedTissues.size > 0) {
+                    const lineage = this.cellLineMetadata?.lineage?.[cellLine];
+                    if (lineage && mr.excludedTissues.has(lineage)) return;
+                }
             }
-            filteredIndices.push(idx);
-        });
-
-        // Build columns: each column is a hotspot gene
-        const columns = [];
-        const mainMutData = this.mutations.geneData[mainHotspot]?.mutations || {};
-        const mainWT = filteredIndices.filter(i => (mainMutData[cellLines[i]] || 0) === 0);
-        const mainMut = filteredIndices.filter(i => (mainMutData[cellLines[i]] || 0) >= 1);
-        columns.push({ label: `${mainHotspot} (ref)`, wtIdx: mainWT, mutIdx: mainMut, isRef: true });
-
-        this.mutations.genes.forEach(hotspotGene => {
-            if (hotspotGene === mainHotspot) return;
-            const mutData = this.mutations.geneData[hotspotGene]?.mutations || {};
-            const wtIdx = filteredIndices.filter(i => (mutData[cellLines[i]] || 0) === 0);
-            const mutIdx = filteredIndices.filter(i => (mutData[cellLines[i]] || 0) >= 1);
-            columns.push({ label: hotspotGene, wtIdx: wtIdx, mutIdx: mutIdx });
-        });
-
-        // Calculate matrix
-        const matrix = {};
-        genes.forEach(gene => {
-            const geneIdx = this.geneIndex.get(gene);
-            if (geneIdx === undefined) return;
-            const geneData = this.getGeneData(geneIdx);
-            matrix[gene] = {};
-            columns.forEach(col => {
-                const wtEffects = col.wtIdx.map(i => geneData[i]).filter(v => !isNaN(v));
-                const mutEffects = col.mutIdx.map(i => geneData[i]).filter(v => !isNaN(v));
-                if (wtEffects.length >= 1 && mutEffects.length >= 1) {
-                    const meanWT = wtEffects.reduce((a, b) => a + b, 0) / wtEffects.length;
-                    const meanMut = mutEffects.reduce((a, b) => a + b, 0) / mutEffects.length;
-                    matrix[gene][col.label] = { delta: meanMut - meanWT, nWT: wtEffects.length, nMut: mutEffects.length };
+            if (!tissueFilter && mr.subLineageFilter && this.cellLineMetadata?.primaryDisease?.[cellLine] !== mr.subLineageFilter) return;
+            if (mr.additionalHotspot && mr.additionalHotspotLevel !== 'all') {
+                const addMutData = this.mutations.geneData[mr.additionalHotspot];
+                if (addMutData) {
+                    const addMutLevel = addMutData.mutations[cellLine] || 0;
+                    if (mr.additionalHotspotLevel === '0' && addMutLevel !== 0) return;
+                    if (mr.additionalHotspotLevel === '1' && addMutLevel !== 1) return;
+                    if (mr.additionalHotspotLevel === '2' && addMutLevel < 2) return;
+                    if (mr.additionalHotspotLevel === '1+2' && addMutLevel === 0) return;
                 }
-            });
+            }
+            const ge = this.geneEffects[geneIdx * this.nCellLines + idx];
+            if (isNaN(ge)) return;
+            baseCells.push({ cellLine, idx, ge, mainMut: mainMutData.mutations[cellLine] || 0 });
         });
 
-        this._compareModalData = { mode: 'hotspot', title: `Co-occurring mutations affecting ${mainHotspot}-sensitive genes`, info: `For each hotspot mutation, Δ = mean mutated − mean WT expression for all ${genes.length} significant genes. This identifies co-occurring mutations that amplify or counteract the effect. Click a cell to inspect.`, genes, columns, matrix };
-        this._compareExtremeMode = false;
-        const btn = document.getElementById('mutCompareExtremeBtn');
-        btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
-        this.renderCompareModal();
-        document.getElementById('mutCompareModal').style.display = 'block';
-    }
-
-    renderCompareModal() {
-        const data = this._compareModalData;
-        if (!data) return;
-        const { genes, columns, matrix, title, info, mode } = data;
-        const minN = parseInt(document.getElementById('mutCompareMinN').value) || 5;
-        const extreme = this._compareExtremeMode;
-
-        document.getElementById('mutCompareModalTitle').textContent = title;
-        document.getElementById('mutCompareModalInfo').innerHTML = info;
-
-        // Filter columns by minN
-        const filteredCols = columns.filter(col => {
-            if (col.isAll || col.isRef) return true;
-            return genes.some(g => {
-                const cell = matrix[g]?.[col.label];
-                return cell && cell.nWT >= minN && cell.nMut >= minN;
-            });
-        });
-
-        // Build per-gene row data with filtered deltas
-        let rowData = genes.map(gene => {
-            const deltas = {};
-            filteredCols.forEach(col => {
-                const cell = matrix[gene]?.[col.label];
-                if (cell && (col.isAll || col.isRef || (cell.nWT >= minN && cell.nMut >= minN))) {
-                    deltas[col.label] = cell;
-                }
-            });
-            return { gene, deltas };
-        }).filter(r => Object.keys(r.deltas).length > 0);
-
-        // Extreme values mode
-        let extremeCells = new Set();
-        if (extreme) {
-            const filteredRows = [];
-            rowData.forEach(row => {
-                const vals = Object.values(row.deltas).map(d => d.delta);
-                if (vals.length < 3) return;
-                const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-                const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length);
-                if (sd === 0) return;
-                let hasExtreme = false;
-                Object.entries(row.deltas).forEach(([colLabel, d]) => {
-                    if (Math.abs(d.delta - mean) > 2 * sd) {
-                        extremeCells.add(`${row.gene}|${colLabel}`);
-                        hasExtreme = true;
-                    }
-                });
-                if (hasExtreme) filteredRows.push(row);
-            });
-            rowData = filteredRows;
+        const rows = [];
+        const noneWT = baseCells.filter(c => c.mainMut === 0).map(c => c.ge);
+        const noneMut = baseCells.filter(c => c.mainMut >= 1).map(c => c.ge);
+        if (noneWT.length > 0 && noneMut.length > 0) {
+            const meanWT = noneWT.reduce((a, b) => a + b, 0) / noneWT.length;
+            const meanMut = noneMut.reduce((a, b) => a + b, 0) / noneMut.length;
+            rows.push({ label: 'None', nWT: noneWT.length, nMut: noneMut.length, delta: meanMut - meanWT, isRef: true, hotspot: '' });
         }
 
-        // Find global max absolute delta for color scaling
-        let maxAbs = 0;
-        rowData.forEach(row => Object.values(row.deltas).forEach(d => {
-            const abs = Math.abs(d.delta);
-            if (abs > maxAbs) maxAbs = abs;
-        }));
-        if (maxAbs === 0) maxAbs = 1;
+        this.mutations.genes.forEach(hGene => {
+            if (hGene === mainHotspot) return;
+            const hMutData = this.mutations.geneData[hGene];
+            if (!hMutData) return;
+            const filtered = baseCells.filter(c => (hMutData.mutations[c.cellLine] || 0) >= 1);
+            const wtGE = filtered.filter(c => c.mainMut === 0).map(c => c.ge);
+            const mutGE = filtered.filter(c => c.mainMut >= 1).map(c => c.ge);
+            if (wtGE.length > 0 && mutGE.length > 0) {
+                const meanWT = wtGE.reduce((a, b) => a + b, 0) / wtGE.length;
+                const meanMut = mutGE.reduce((a, b) => a + b, 0) / mutGE.length;
+                rows.push({ label: hGene, nWT: wtGE.length, nMut: mutGE.length, delta: meanMut - meanWT, hotspot: hGene });
+            }
+        });
 
-        // Build table HTML
-        const headerHtml = filteredCols.map(col => {
-            const label = col.label;
-            const style = 'writing-mode: vertical-rl; transform: rotate(180deg); font-size:10px; padding:8px 4px; white-space:nowrap; min-width:28px; max-width:40px; text-align:left;';
-            return `<th style="${style}">${label}</th>`;
-        }).join('');
+        const refRow = rows.filter(r => r.isRef);
+        const otherRows = rows.filter(r => !r.isRef).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
-        const bodyHtml = rowData.map(row => {
-            const cells = filteredCols.map(col => {
-                const d = row.deltas[col.label];
-                if (!d) return '<td style="background:#f9fafb; text-align:center; font-size:10px; color:#ccc; padding:3px 2px;">-</td>';
-                const delta = d.delta;
-                const intensity = Math.min(Math.abs(delta) / maxAbs, 1);
-                const r = delta < 0 ? Math.round(220 + 35 * intensity) : Math.round(255 - 100 * intensity);
-                const g = delta < 0 ? Math.round(255 - 100 * intensity) : Math.round(220 + 35 * intensity);
-                const b = delta < 0 ? Math.round(255 - 100 * intensity) : Math.round(255 - 100 * intensity);
-                const isExtreme = extreme && extremeCells.has(`${row.gene}|${col.label}`);
-                const border = isExtreme ? 'border:2px solid #7c3aed;' : '';
-                const fontWeight = isExtreme ? 'font-weight:700;' : '';
-                const clickTissue = mode === 'tissue' ? (col.isAll ? '' : col.label) : '';
-                const clickAttr = `onclick="app.openCompareInspect('${row.gene}', '${clickTissue}')"`;
-                return `<td style="text-align:center; font-size:10px; padding:3px 2px; cursor:pointer; background:rgb(${r},${g},${b}); ${border}${fontWeight}" title="Δ=${delta.toFixed(2)} nWT=${d.nWT} nMut=${d.nMut}" ${clickAttr}>${delta.toFixed(2)}</td>`;
-            }).join('');
-            return `<tr><td style="position:sticky; left:0; background:white; z-index:1; padding:4px 8px; font-size:11px; font-weight:600; border-right:1px solid #e5e7eb; white-space:nowrap;">${row.gene}</td>${cells}</tr>`;
-        }).join('');
-
-        const infoCount = `${rowData.length} genes × ${filteredCols.length} ${mode === 'tissue' ? 'tissues' : 'hotspots'} (min N=${minN})`;
-        document.getElementById('mutCompareModalInfo').innerHTML = info + `<br><b>${infoCount}</b>`;
-
-        const tableHtml = `<table style="border-collapse:collapse; font-size:11px;">
-            <thead><tr><th style="position:sticky; left:0; top:0; background:white; z-index:2; padding:4px 8px; border-right:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb;">Gene</th>${headerHtml}</tr></thead>
-            <tbody>${bodyHtml}</tbody>
-        </table>`;
-
-        document.getElementById('mutCompareModalBody').innerHTML = tableHtml;
+        this._inlineCompareData = { title: `${gene} — Δ Expr by Additional Hotspot (${mainHotspot} WT vs Mut)`, headers: ['Hotspot Filter', 'N(WT)', 'N(Mut)', 'Δ Expr'], refRows: refRow, sortableRows: otherRows, mode: 'hotspot' };
+        this._renderInlineCompareTable();
     }
 
-    openCompareInspect(gene, tissue) {
-        this.showGeneEffectDistribution(gene, tissue || '');
+    sortInlineCompare(colIndex) {
+        if (!this._inlineCompareData) return;
+        if (this._inlineSortCol === colIndex) {
+            this._inlineSortAsc = !this._inlineSortAsc;
+        } else {
+            this._inlineSortCol = colIndex;
+            this._inlineSortAsc = true;
+        }
+        const d = this._inlineCompareData;
+        const key = colIndex === 0 ? 'label' : colIndex === 1 ? 'nWT' : colIndex === 2 ? 'nMut' : 'delta';
+        const asc = this._inlineSortAsc;
+        d.sortableRows.sort((a, b) => {
+            const va = key === 'label' ? a[key].toLowerCase() : a[key];
+            const vb = key === 'label' ? b[key].toLowerCase() : b[key];
+            return asc ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0);
+        });
+        this._renderInlineCompareTable();
+    }
+
+    _renderInlineCompareTable() {
+        if (!this._inlineCompareData) return;
+        const { title, headers, refRows, sortableRows, mode } = this._inlineCompareData;
+        const allRows = [...refRows, ...sortableRows];
+
+        const container = document.getElementById('geInlineCompareTable');
+        const titleEl = document.getElementById('geInlineCompareTitle');
+        const bodyEl = document.getElementById('geInlineCompareBody');
+
+        titleEl.textContent = title;
+
+        let maxAbs = 0;
+        allRows.forEach(r => { const abs = Math.abs(r.delta); if (abs > maxAbs) maxAbs = abs; });
+        if (maxAbs === 0) maxAbs = 1;
+
+        let html = '<table style="border-collapse:collapse; font-size:11px;">';
+        html += '<thead><tr>';
+        headers.forEach((h, i) => {
+            let arrow = '';
+            if (this._inlineSortCol === i) arrow = this._inlineSortAsc ? ' ▲' : ' ▼';
+            html += `<th onclick="app.sortInlineCompare(${i})" style="text-align:left; padding:2px 6px; border-bottom:2px solid #6366f1; font-size:10px; cursor:pointer; white-space:nowrap;">${h}${arrow}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        allRows.forEach(row => {
+            const delta = row.delta;
+            const intensity = Math.min(Math.abs(delta) / maxAbs, 1);
+            let r, g, b;
+            if (delta < 0) {
+                r = 255; g = Math.round(255 - 140 * intensity); b = Math.round(255 - 140 * intensity);
+            } else {
+                r = Math.round(255 - 140 * intensity); g = Math.round(255 - 50 * intensity); b = Math.round(255 - 140 * intensity);
+            }
+            const bgColor = `rgb(${r},${g},${b})`;
+            const bold = row.isAll || row.isRef ? 'font-weight:600;' : '';
+            const clickVal = mode === 'tissue' ? row.tissue : row.hotspot;
+            const clickFn = mode === 'tissue'
+                ? `app.onInlineCompareTissueClick('${(clickVal || '').replace(/'/g, "\\'")}')`
+                : `app.onInlineCompareHotspotClick('${(clickVal || '').replace(/'/g, "\\'")}')`;
+
+            html += `<tr onclick="${clickFn}" style="cursor:pointer; ${bold}">`;
+            html += `<td style="padding:2px 6px; border-bottom:1px solid #e5e7eb;">${row.label}</td>`;
+            html += `<td style="padding:2px 6px; border-bottom:1px solid #e5e7eb; text-align:right;">${row.nWT}</td>`;
+            html += `<td style="padding:2px 6px; border-bottom:1px solid #e5e7eb; text-align:right;">${row.nMut}</td>`;
+            html += `<td style="padding:2px 6px; border-bottom:1px solid #e5e7eb; text-align:right; background:${bgColor};">${delta.toFixed(2)}</td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        bodyEl.innerHTML = html;
+        container.style.display = '';
+    }
+
+    onInlineCompareTissueClick(tissue) {
+        document.getElementById('geTissueFilter').value = tissue;
+        this._keepInlineCompare = true;
+        this.showGeneEffectDistribution(this.currentGeneEffectGene);
+    }
+
+    onInlineCompareHotspotClick(hotspot) {
+        document.getElementById('geHotspotFilter').value = hotspot;
+        this._keepInlineCompare = true;
+        this.showGeneEffectDistribution(this.currentGeneEffectGene);
     }
 
     updateExcludedTissues() {
@@ -9201,6 +9319,320 @@ Results:
             label.appendChild(document.createTextNode(lineage));
             container.appendChild(label);
         });
+    }
+
+    // ===== Full-Screen Compare Modal =====
+
+
+    showMutationCompareByTissue() {
+        if (!this.mutationResults) return;
+        const mr = this.mutationResults;
+        const hotspotGene = mr.hotspotGene;
+        const mutationData = this.mutations.geneData[hotspotGene];
+        if (!mutationData) return;
+
+        const cellLines = this.metadata.cellLines;
+
+        // Build tissue → { cellLine indices by mutation status } map
+        const tissueMap = {};
+        cellLines.forEach((cellLine, idx) => {
+            if (mr.additionalHotspot && mr.additionalHotspotLevel !== 'all') {
+                const addMutData = this.mutations.geneData[mr.additionalHotspot];
+                if (addMutData) {
+                    const addMutLevel = addMutData.mutations[cellLine] || 0;
+                    if (mr.additionalHotspotLevel === '0' && addMutLevel !== 0) return;
+                    if (mr.additionalHotspotLevel === '1' && addMutLevel !== 1) return;
+                    if (mr.additionalHotspotLevel === '2' && addMutLevel < 2) return;
+                    if (mr.additionalHotspotLevel === '1+2' && addMutLevel === 0) return;
+                }
+            }
+            const lineage = this.cellLineMetadata?.lineage?.[cellLine] || 'Unknown';
+            const mutLevel = mutationData.mutations[cellLine] || 0;
+            if (!tissueMap[lineage]) tissueMap[lineage] = { wt: [], mut: [], total: 0 };
+            tissueMap[lineage].total++;
+            if (mutLevel === 0) tissueMap[lineage].wt.push(idx);
+            else tissueMap[lineage].mut.push(idx);
+        });
+
+        // Also build "All" column
+        const allWT = [], allMut = [];
+        Object.values(tissueMap).forEach(t => { allWT.push(...t.wt); allMut.push(...t.mut); });
+
+        // Build columns: "All" + each tissue
+        const cols = [{ label: 'All', wtIdx: allWT, mutIdx: allMut, totalCells: allWT.length + allMut.length, nWT: allWT.length, nMut: allMut.length, isRef: true }];
+        Object.entries(tissueMap).forEach(([tissue, data]) => {
+            cols.push({ label: tissue, wtIdx: data.wt, mutIdx: data.mut, totalCells: data.total, nWT: data.wt.length, nMut: data.mut.length, tissue });
+        });
+
+        // Store data for rendering
+        this._compareModalData = {
+            cols,
+            genes: mr.significantResults.map(r => r.gene),
+            hotspotGene,
+            mode: 'tissue',
+            title: `Compare by Tissue — ${hotspotGene} Hotspot Mutational Analysis`
+        };
+        this._compareModalMode = 'tissue';
+        this._compareSortCol = null;
+        this._compareSortAsc = true;
+
+        this.renderCompareModal();
+        document.getElementById('mutCompareModal').style.display = '';
+    }
+
+    showMutationCompareByHotspot() {
+        if (!this.mutationResults) return;
+        const mr = this.mutationResults;
+        const mainHotspot = mr.hotspotGene;
+        const mainMutData = this.mutations.geneData[mainHotspot];
+        if (!mainMutData) return;
+
+        const cellLines = this.metadata.cellLines;
+
+        // Build base filtered cell indices
+        const baseCells = [];
+        cellLines.forEach((cellLine, idx) => {
+            if (mr.lineageFilter && this.cellLineMetadata?.lineage?.[cellLine] !== mr.lineageFilter) return;
+            if (mr.subLineageFilter && this.cellLineMetadata?.primaryDisease?.[cellLine] !== mr.subLineageFilter) return;
+            if (mr.excludedTissues && mr.excludedTissues.size > 0) {
+                const lineage = this.cellLineMetadata?.lineage?.[cellLine];
+                if (lineage && mr.excludedTissues.has(lineage)) return;
+            }
+            if (mr.additionalHotspot && mr.additionalHotspotLevel !== 'all') {
+                const addMutData = this.mutations.geneData[mr.additionalHotspot];
+                if (addMutData) {
+                    const addMutLevel = addMutData.mutations[cellLine] || 0;
+                    if (mr.additionalHotspotLevel === '0' && addMutLevel !== 0) return;
+                    if (mr.additionalHotspotLevel === '1' && addMutLevel !== 1) return;
+                    if (mr.additionalHotspotLevel === '2' && addMutLevel < 2) return;
+                    if (mr.additionalHotspotLevel === '1+2' && addMutLevel === 0) return;
+                }
+            }
+            const mainMut = mainMutData.mutations[cellLine] || 0;
+            baseCells.push({ cellLine, idx, mainMut });
+        });
+
+        // "All" column — no hotspot filter
+        const allWT = baseCells.filter(c => c.mainMut === 0).map(c => c.idx);
+        const allMut = baseCells.filter(c => c.mainMut >= 1).map(c => c.idx);
+        const cols = [{ label: 'All', wtIdx: allWT, mutIdx: allMut, totalCells: baseCells.length, nWT: allWT.length, nMut: allMut.length, isRef: true }];
+
+        // For each other hotspot gene
+        this.mutations.genes.forEach(hGene => {
+            if (hGene === mainHotspot) return;
+            const hMutData = this.mutations.geneData[hGene];
+            if (!hMutData) return;
+            const filtered = baseCells.filter(c => (hMutData.mutations[c.cellLine] || 0) >= 1);
+            const wt = filtered.filter(c => c.mainMut === 0).map(c => c.idx);
+            const mut = filtered.filter(c => c.mainMut >= 1).map(c => c.idx);
+            if (wt.length > 0 || mut.length > 0) {
+                cols.push({ label: hGene, wtIdx: wt, mutIdx: mut, totalCells: filtered.length, nWT: wt.length, nMut: mut.length, hotspot: hGene });
+            }
+        });
+
+        this._compareModalData = {
+            cols,
+            genes: mr.significantResults.map(r => r.gene),
+            hotspotGene: mainHotspot,
+            mode: 'hotspot',
+            title: `Compare by Hotspot — ${mainHotspot} Hotspot Mutational Analysis`
+        };
+        this._compareModalMode = 'hotspot';
+        this._compareSortCol = null;
+        this._compareSortAsc = true;
+
+        this.renderCompareModal();
+        document.getElementById('mutCompareModal').style.display = '';
+    }
+
+    renderCompareModal() {
+        if (!this._compareModalData) return;
+        const d = this._compareModalData;
+        const minN = parseInt(document.getElementById('mutCompareMinN')?.value) || 5;
+
+        // Filter columns by minN (only requires min N mutated cells)
+        const filteredCols = d.cols.filter(c => c.mutIdx.length >= minN);
+        this._compareModalCols = filteredCols;
+
+        // Compute delta matrix: genes × cols
+        const deltaMatrix = [];
+        d.genes.forEach(gene => {
+            const geneIdx = this.geneIndex.get(gene.toUpperCase());
+            if (geneIdx === undefined) { deltaMatrix.push(null); return; }
+            const row = {};
+            filteredCols.forEach(col => {
+                const wtVals = col.wtIdx.map(i => this.geneEffects[geneIdx * this.nCellLines + i]).filter(v => !isNaN(v));
+                const mutVals = col.mutIdx.map(i => this.geneEffects[geneIdx * this.nCellLines + i]).filter(v => !isNaN(v));
+                if (wtVals.length >= 3 && mutVals.length >= minN) {
+                    const meanWT = wtVals.reduce((a, b) => a + b, 0) / wtVals.length;
+                    const meanMut = mutVals.reduce((a, b) => a + b, 0) / mutVals.length;
+                    row[col.label] = meanMut - meanWT;
+                } else {
+                    row[col.label] = null;
+                }
+            });
+            deltaMatrix.push(row);
+        });
+
+        // Build gene list with indices
+        let geneRows = d.genes.map((gene, i) => ({ gene, deltas: deltaMatrix[i], idx: i })).filter(r => r.deltas !== null);
+
+        // Sort if active
+        if (this._compareSortCol !== null) {
+            const colLabel = this._compareSortCol;
+            const asc = this._compareSortAsc;
+            geneRows.sort((a, b) => {
+                const va = a.deltas[colLabel];
+                const vb = b.deltas[colLabel];
+                if (va === null && vb === null) return 0;
+                if (va === null) return 1;
+                if (vb === null) return -1;
+                return asc ? va - vb : vb - va;
+            });
+        }
+
+        // Find global max |delta| for color scaling
+        let maxAbs = 0;
+        geneRows.forEach(r => {
+            Object.values(r.deltas).forEach(v => { if (v !== null && Math.abs(v) > maxAbs) maxAbs = Math.abs(v); });
+        });
+        if (maxAbs === 0) maxAbs = 1;
+
+        // Title and info
+        document.getElementById('mutCompareModalTitle').textContent = d.title;
+        const modeLabel = d.mode === 'tissue' ? 'tissue/cancer type' : 'hotspot mutation';
+        document.getElementById('mutCompareModalInfo').innerHTML =
+            `<b>Δ Expr = Mean Expr(mutated) − Mean Expr(WT)</b> for ${d.hotspotGene} mutation, stratified by ${modeLabel}. ` +
+            `<span style="color:#dc2626;">Red = more essential when mutated</span>, <span style="color:#16a34a;">Green = less essential</span>. ` +
+            `${geneRows.length} genes × ${filteredCols.length} ${d.mode === 'tissue' ? 'tissues' : 'hotspots'} | Min mutated cells: ${minN} | ` +
+            `Click cell to inspect, hover column header for N(WT)/N(Mut)`;
+
+        // Build table HTML
+        let html = '<table style="border-collapse:collapse; font-size:11px; width:auto; max-width:100%; margin:0 auto;">';
+        html += '<thead style="position:sticky; top:0; z-index:1;"><tr><th style="padding:4px 8px; background:#f0fdf4; border-bottom:2px solid #5a9f4a; position:sticky; left:0; z-index:2; text-align:left;">Gene</th>';
+        filteredCols.forEach((col, ci) => {
+            let arrow = '';
+            if (this._compareSortCol === col.label) arrow = this._compareSortAsc ? ' ▲' : ' ▼';
+            const isRef = col.isRef ? 'font-weight:700;' : '';
+            html += `<th onclick="app.sortCompareModal('${col.label.replace(/'/g, "\\'")}')" onmouseenter="app.showColumnTooltip(event, ${ci})" onmouseleave="app.hideColumnTooltip()" style="padding:4px 6px; background:#f0fdf4; border-bottom:2px solid #5a9f4a; cursor:pointer; white-space:nowrap; font-size:10px; ${isRef}">${col.label}${arrow}<br><span style="font-weight:400; font-size:9px; color:#6b7280;">${col.nWT}/${col.nMut}</span></th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        geneRows.forEach(r => {
+            html += '<tr>';
+            html += `<td onmouseenter="app.showGeneTooltip(event, '${r.gene}')" onmouseleave="app.hideGeneTooltip()" style="padding:3px 8px; border-bottom:1px solid #e5e7eb; position:sticky; left:0; background:white; font-weight:500; cursor:pointer; white-space:nowrap; color:#5a9f4a;" onclick="app.openCompareInspect('${r.gene}', '', '', '${d.mode}')">${r.gene}</td>`;
+            filteredCols.forEach(col => {
+                const v = r.deltas[col.label];
+                if (v === null) {
+                    html += '<td style="padding:3px 6px; border-bottom:1px solid #e5e7eb; text-align:center; color:#ccc;">-</td>';
+                } else {
+                    const intensity = Math.min(Math.abs(v) / maxAbs, 1);
+                    let red, green, blue;
+                    if (v < 0) {
+                        // Negative (more essential) → white to red
+                        red = 255;
+                        green = Math.round(255 - 140 * intensity);
+                        blue = Math.round(255 - 140 * intensity);
+                    } else {
+                        // Positive (less essential) → white to green
+                        red = Math.round(255 - 140 * intensity);
+                        green = Math.round(255 - 50 * intensity);
+                        blue = Math.round(255 - 140 * intensity);
+                    }
+                    const bgColor = `rgb(${red},${green},${blue})`;
+                    const clickArg = d.mode === 'tissue' ? `'${r.gene}', '${(col.tissue || '').replace(/'/g, "\\'")}', '', 'tissue'` : `'${r.gene}', '', '${(col.hotspot || '').replace(/'/g, "\\'")}', 'hotspot'`;
+                    html += `<td onclick="app.openCompareInspect(${clickArg})" style="padding:3px 6px; border-bottom:1px solid #e5e7eb; text-align:center; background:${bgColor}; cursor:pointer; font-size:10px;" title="${v.toFixed(3)}">${v.toFixed(2)}</td>`;
+                }
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('mutCompareModalBody').innerHTML = html;
+    }
+
+    downloadCompareCSV() {
+        if (!this._compareModalData || !this._compareModalCols) return;
+        const d = this._compareModalData;
+        const filteredCols = this._compareModalCols;
+        const minN = parseInt(document.getElementById('mutCompareMinN')?.value) || 5;
+
+        // Recompute delta matrix (same logic as renderCompareModal)
+        const geneRows = [];
+        d.genes.forEach(gene => {
+            const geneIdx = this.geneIndex.get(gene.toUpperCase());
+            if (geneIdx === undefined) return;
+            const row = { gene };
+            filteredCols.forEach(col => {
+                const wtVals = col.wtIdx.map(i => this.geneEffects[geneIdx * this.nCellLines + i]).filter(v => !isNaN(v));
+                const mutVals = col.mutIdx.map(i => this.geneEffects[geneIdx * this.nCellLines + i]).filter(v => !isNaN(v));
+                if (wtVals.length >= 3 && mutVals.length >= minN) {
+                    const meanWT = wtVals.reduce((a, b) => a + b, 0) / wtVals.length;
+                    const meanMut = mutVals.reduce((a, b) => a + b, 0) / mutVals.length;
+                    row[col.label] = (meanMut - meanWT).toFixed(4);
+                } else {
+                    row[col.label] = '';
+                }
+            });
+            geneRows.push(row);
+        });
+
+        // Build CSV
+        const colLabels = filteredCols.map(c => c.label);
+        let csv = `# Compare by ${d.mode === 'tissue' ? 'Tissue' : 'Hotspot'} — ${d.hotspotGene} Mutation\n`;
+        csv += `# Min N: ${minN}\n`;
+        csv += `# Date: ${new Date().toISOString().slice(0, 10)}\n`;
+        csv += '#\n';
+        csv += 'Gene,' + colLabels.map(l => `"${l}"`).join(',') + '\n';
+        geneRows.forEach(r => {
+            csv += r.gene + ',' + colLabels.map(l => r[l]).join(',') + '\n';
+        });
+
+        const filename = `compare_${d.mode}_${d.hotspotGene}_${new Date().toISOString().slice(0, 10)}.csv`;
+        this.downloadFile(csv, filename, 'text/csv');
+    }
+
+    sortCompareModal(colLabel) {
+        if (this._compareSortCol === colLabel) {
+            this._compareSortAsc = !this._compareSortAsc;
+        } else {
+            this._compareSortCol = colLabel;
+            this._compareSortAsc = true;
+        }
+        this.renderCompareModal();
+    }
+
+    showColumnTooltip(event, colIdx) {
+        this.hideColumnTooltip();
+        if (!this._compareModalCols || !this._compareModalCols[colIdx]) return;
+        const col = this._compareModalCols[colIdx];
+        const tooltip = document.createElement('div');
+        tooltip.id = 'columnTooltip';
+        tooltip.style.cssText = 'position:fixed; z-index:10001; background:white; border:1px solid #d1d5db; border-radius:8px; padding:8px 12px; max-width:250px; box-shadow:0 4px 12px rgba(0,0,0,0.15); font-size:11px; line-height:1.5;';
+        tooltip.innerHTML = `<b>${col.label}</b><br>Total cell lines: ${col.totalCells}<br>N(WT): ${col.nWT}<br>N(Mut): ${col.nMut}`;
+        const x = Math.min(event.clientX + 10, window.innerWidth - 270);
+        const y = Math.min(event.clientY + 10, window.innerHeight - 100);
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+        document.body.appendChild(tooltip);
+    }
+
+    hideColumnTooltip() {
+        const existing = document.getElementById('columnTooltip');
+        if (existing) existing.remove();
+    }
+
+    openCompareInspect(gene, tissue, hotspot, mode) {
+        // Close compare modal
+        document.getElementById('mutCompareModal').style.display = 'none';
+        // Open inspect with appropriate filters
+        if (mode === 'tissue' && tissue) {
+            this.showGeneEffectDistribution(gene, tissue, '');
+        } else if (mode === 'hotspot' && hotspot) {
+            this.showGeneEffectDistribution(gene, '', hotspot);
+        } else {
+            this.showGeneEffectDistribution(gene);
+        }
     }
 }
 
