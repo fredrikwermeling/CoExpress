@@ -12292,7 +12292,8 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         parsed.forEach((row, i) => {
             const geneList = Array.isArray(row.genes) ? row.genes.join(', ') : String(row.genes);
             const geneCount = Array.isArray(row.genes) ? row.genes.length : 0;
-            const truncatedGenes = geneList.length > 60 ? geneList.substring(0, 60) + '...' : geneList;
+            const isLong = geneList.length > 60;
+            const truncatedGenes = isLong ? geneList.substring(0, 60) + '...' : geneList;
 
             html += `<tr style="border-bottom:1px solid #333;">`;
             html += `<td style="padding:5px 8px; color:#888;">${row.rank}</td>`;
@@ -12301,7 +12302,11 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
             html += `<td style="padding:5px 8px; font-family:monospace; font-size:11px; color:#5a9f4a; font-weight:bold;">${row.adjPValue.toExponential(2)}</td>`;
             html += `<td style="padding:5px 8px;">${row.zScore.toFixed(2)}</td>`;
             html += `<td style="padding:5px 8px;">${row.combinedScore.toFixed(1)}</td>`;
-            html += `<td style="padding:5px 8px; max-width:200px; overflow:hidden; text-overflow:ellipsis; font-size:11px;" title="${geneList}">${truncatedGenes}</td>`;
+            if (isLong) {
+                html += `<td class="enrichr-gene-cell" data-row-idx="${i}" style="padding:5px 8px; max-width:200px; font-size:11px; cursor:pointer;" title="Click to expand"><span class="enrichr-genes-short">${truncatedGenes} <span style="color:#7cabcf;">[${geneCount}]</span></span><span class="enrichr-genes-full" style="display:none; white-space:normal; word-break:break-word;">${geneList} <span style="color:#7cabcf;">[collapse]</span></span></td>`;
+            } else {
+                html += `<td style="padding:5px 8px; max-width:200px; overflow:hidden; text-overflow:ellipsis; font-size:11px;">${geneList}</td>`;
+            }
             html += `<td style="padding:5px 8px; text-align:center;">${geneCount}</td>`;
             html += '</tr>';
 
@@ -12325,6 +12330,19 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
                     st.asc = true;
                 }
                 this.renderEnrichrResults(activeLibrary);
+            });
+        });
+
+        // Wire gene list expand/collapse clicks
+        contentEl.querySelectorAll('.enrichr-gene-cell').forEach(td => {
+            td.addEventListener('click', () => {
+                const short = td.querySelector('.enrichr-genes-short');
+                const full = td.querySelector('.enrichr-genes-full');
+                if (!short || !full) return;
+                const isExpanded = full.style.display !== 'none';
+                short.style.display = isExpanded ? '' : 'none';
+                full.style.display = isExpanded ? 'none' : '';
+                td.title = isExpanded ? 'Click to expand' : 'Click to collapse';
             });
         });
     }
@@ -12378,7 +12396,6 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
             clbSearchTimer = setTimeout(() => this.renderCellLineList(), 150);
         });
         document.getElementById('clbTissueFilter').addEventListener('change', () => {
-            this.updateClbSubtypeFilter();
             this.renderCellLineList();
         });
         document.getElementById('clbSubtypeFilter').addEventListener('change', () => this.renderCellLineList());
@@ -12394,8 +12411,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         document.getElementById('clbResetFilters').addEventListener('click', () => {
             document.getElementById('clbSearch').value = '';
             document.getElementById('clbTissueFilter').value = '';
-            document.getElementById('clbSubtypeFilter').style.display = 'none';
-            document.getElementById('clbSubtypeFilter').innerHTML = '<option value="">All subtypes</option>';
+            document.getElementById('clbSubtypeFilter').value = '';
             document.getElementById('clbHotspotFilter').value = '';
             document.getElementById('clbTranslocationFilter').value = '';
             document.getElementById('clbSortGene').value = '';
@@ -12459,47 +12475,54 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
 
         document.getElementById('clbExportMinimal').addEventListener('click', () => this.exportCellLineBrowserCSV('minimal'));
         document.getElementById('clbExportFull').addEventListener('click', () => this.exportCellLineBrowserCSV('full'));
+
+        // Gene tooltips on gene links in detail panel
+        const geneLists = document.getElementById('clbDetailGeneLists');
+        geneLists.addEventListener('mouseenter', (e) => {
+            const link = e.target.closest('.clb-gene-link');
+            if (!link) return;
+            this._clbGeneTooltipTimer = setTimeout(() => {
+                this.showGeneTooltip(e, link.dataset.gene);
+            }, 400);
+        }, true);
+        geneLists.addEventListener('mouseleave', (e) => {
+            const link = e.target.closest('.clb-gene-link');
+            if (!link) return;
+            clearTimeout(this._clbGeneTooltipTimer);
+            this.hideGeneTooltip();
+        }, true);
+
+        // Click handler for gene links in top section (mutations/fusions)
+        const detailTop = document.getElementById('clbDetailTop');
+        detailTop.addEventListener('click', (e) => {
+            const link = e.target.closest('.clb-gene-link');
+            if (!link) return;
+            e.preventDefault();
+            this._geHighlightCellLine = this._clbInspectedCellLine;
+            this.openGeneEffectModal(link.dataset.gene, 'tissue');
+        });
+
+        // Gene tooltips on mutation/fusion gene names in top section
+        detailTop.addEventListener('mouseenter', (e) => {
+            const link = e.target.closest('.gene-hover');
+            if (!link) return;
+            this._clbGeneTooltipTimer = setTimeout(() => {
+                this.showGeneTooltip(e, link.dataset.gene);
+            }, 400);
+        }, true);
+        detailTop.addEventListener('mouseleave', (e) => {
+            const link = e.target.closest('.gene-hover');
+            if (!link) return;
+            clearTimeout(this._clbGeneTooltipTimer);
+            this.hideGeneTooltip();
+        }, true);
     }
 
     openCellLineBrowser() {
-        const tissueSelect = document.getElementById('clbTissueFilter');
-        const total = this.metadata.cellLines.length;
-        tissueSelect.innerHTML = `<option value="">All tissues (n=${total})</option>`;
-        Object.keys(this.lineageCounts).sort().forEach(lineage => {
-            const opt = document.createElement('option');
-            opt.value = lineage;
-            opt.textContent = `${lineage} (n=${this.lineageCounts[lineage]})`;
-            tissueSelect.appendChild(opt);
-        });
-
-        document.getElementById('clbSubtypeFilter').style.display = 'none';
-        document.getElementById('clbSubtypeFilter').innerHTML = '<option value="">All subtypes</option>';
-
-        const hotspotSelect = document.getElementById('clbHotspotFilter');
-        hotspotSelect.innerHTML = '<option value="">Hotspot mutation</option>';
-        if (this.mutations?.geneData) {
-            Object.keys(this.mutations.geneData).sort().forEach(gene => {
-                const muts = this.mutations.geneData[gene].mutations;
-                let n = 0;
-                for (const v of Object.values(muts)) { if (v > 0) n++; }
-                const opt = document.createElement('option');
-                opt.value = gene;
-                opt.textContent = `${gene} (n=${n})`;
-                hotspotSelect.appendChild(opt);
-            });
-        }
-
-        const transSelect = document.getElementById('clbTranslocationFilter');
-        transSelect.innerHTML = '<option value="">Translocation</option>';
-        if (this._fusionGeneCounts) {
-            this._fusionGeneCounts.forEach(({ gene, nFused }) => {
-                const opt = document.createElement('option');
-                opt.value = gene;
-                opt.textContent = `${gene} (n=${nFused})`;
-                transSelect.appendChild(opt);
-            });
-        }
-
+        document.getElementById('clbTissueFilter').value = '';
+        document.getElementById('clbSubtypeFilter').value = '';
+        document.getElementById('clbHotspotFilter').value = '';
+        document.getElementById('clbTranslocationFilter').value = '';
         document.getElementById('clbSearch').value = '';
         document.getElementById('clbSortGene').value = '';
         document.getElementById('clbDetailPanel').classList.remove('active');
@@ -12570,6 +12593,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         const container = document.getElementById('clbList');
         if (filtered.length === 0) {
             container.innerHTML = '<div class="clb-no-results">No cell lines match your filters</div>';
+            this.updateClbFilterCounts(filtered);
             return;
         }
 
@@ -12589,6 +12613,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
                 `<span class="clb-entry-tissue">${lin}</span>${geStr}</div>`;
         }).join('');
         container.innerHTML = html;
+        this.updateClbFilterCounts(filtered);
     }
 
     updateClbSubtypeFilter() {
@@ -12621,6 +12646,139 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
             subSelect.appendChild(opt);
         });
         subSelect.style.display = '';
+    }
+
+    updateClbFilterCounts(filteredCellLines) {
+        const activeTissue = document.getElementById('clbTissueFilter').value;
+        const activeSubtype = document.getElementById('clbSubtypeFilter').value;
+        const activeHotspot = document.getElementById('clbHotspotFilter').value;
+        const activeTrans = document.getElementById('clbTranslocationFilter').value;
+
+        // --- Tissue filter: count how many cell lines match all OTHER active filters ---
+        const tissueSelect = document.getElementById('clbTissueFilter');
+        const tissueCounts = {};
+        let totalForTissue = 0;
+        for (const cl of this.metadata.cellLines) {
+            // Apply all filters EXCEPT tissue
+            if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) continue;
+            if (activeHotspot && this.mutations?.geneData) {
+                if (!(this.mutations.geneData[activeHotspot]?.mutations?.[cl] >= 1)) continue;
+            }
+            if (activeTrans && this.translocations?.geneData) {
+                if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) continue;
+            }
+            totalForTissue++;
+            const lin = this.getCellLineLineage(cl);
+            tissueCounts[lin] = (tissueCounts[lin] || 0) + 1;
+        }
+        tissueSelect.innerHTML = `<option value="">All tissues (n=${totalForTissue})</option>`;
+        Object.keys(tissueCounts).sort().forEach(lin => {
+            const opt = document.createElement('option');
+            opt.value = lin;
+            opt.textContent = `${lin} (n=${tissueCounts[lin]})`;
+            if (lin === activeTissue) opt.selected = true;
+            tissueSelect.appendChild(opt);
+        });
+
+        // --- Subtype filter: count within selected tissue, applying other filters ---
+        const subSelect = document.getElementById('clbSubtypeFilter');
+        if (!activeTissue) {
+            subSelect.style.display = 'none';
+            subSelect.innerHTML = '<option value="">All subtypes</option>';
+        } else {
+            const subtypeCounts = {};
+            let totalForSubtype = 0;
+            for (const cl of this.metadata.cellLines) {
+                if (this.getCellLineLineage(cl) !== activeTissue) continue;
+                if (activeHotspot && this.mutations?.geneData) {
+                    if (!(this.mutations.geneData[activeHotspot]?.mutations?.[cl] >= 1)) continue;
+                }
+                if (activeTrans && this.translocations?.geneData) {
+                    if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) continue;
+                }
+                totalForSubtype++;
+                const sub = this.getCellLineSublineage(cl);
+                if (sub) subtypeCounts[sub] = (subtypeCounts[sub] || 0) + 1;
+            }
+            const subtypeKeys = Object.keys(subtypeCounts).sort();
+            if (subtypeKeys.length === 0) {
+                subSelect.style.display = 'none';
+                subSelect.innerHTML = '<option value="">All subtypes</option>';
+            } else {
+                subSelect.innerHTML = `<option value="">All subtypes (n=${totalForSubtype})</option>`;
+                subtypeKeys.forEach(sub => {
+                    const opt = document.createElement('option');
+                    opt.value = sub;
+                    opt.textContent = `${sub} (n=${subtypeCounts[sub]})`;
+                    if (sub === activeSubtype) opt.selected = true;
+                    subSelect.appendChild(opt);
+                });
+                subSelect.style.display = '';
+            }
+        }
+
+        // --- Hotspot filter: count applying tissue/subtype/translocation filters ---
+        const hotspotSelect = document.getElementById('clbHotspotFilter');
+        hotspotSelect.innerHTML = '<option value="">Hotspot mutation</option>';
+        if (this.mutations?.geneData) {
+            // Pre-filter cell lines by tissue, subtype, translocation
+            const eligible = this.metadata.cellLines.filter(cl => {
+                if (activeTissue && this.getCellLineLineage(cl) !== activeTissue) return false;
+                if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) return false;
+                if (activeTrans && this.translocations?.geneData) {
+                    if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) return false;
+                }
+                return true;
+            });
+            const geneCounts = [];
+            for (const gene of Object.keys(this.mutations.geneData)) {
+                const muts = this.mutations.geneData[gene].mutations;
+                let n = 0;
+                for (const cl of eligible) {
+                    if (muts[cl] >= 1) n++;
+                }
+                if (n > 0) geneCounts.push({ gene, n });
+            }
+            geneCounts.sort((a, b) => a.gene.localeCompare(b.gene));
+            geneCounts.forEach(({ gene, n }) => {
+                const opt = document.createElement('option');
+                opt.value = gene;
+                opt.textContent = `${gene} (n=${n})`;
+                if (gene === activeHotspot) opt.selected = true;
+                hotspotSelect.appendChild(opt);
+            });
+        }
+
+        // --- Translocation filter: count applying tissue/subtype/hotspot filters ---
+        const transSelect = document.getElementById('clbTranslocationFilter');
+        transSelect.innerHTML = '<option value="">Translocation</option>';
+        if (this.translocations?.geneData) {
+            const eligible = this.metadata.cellLines.filter(cl => {
+                if (activeTissue && this.getCellLineLineage(cl) !== activeTissue) return false;
+                if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) return false;
+                if (activeHotspot && this.mutations?.geneData) {
+                    if (!(this.mutations.geneData[activeHotspot]?.mutations?.[cl] >= 1)) return false;
+                }
+                return true;
+            });
+            const geneCounts = [];
+            for (const gene of Object.keys(this.translocations.geneData)) {
+                const trans = this.translocations.geneData[gene].translocations;
+                let n = 0;
+                for (const cl of eligible) {
+                    if (trans[cl] >= 1) n++;
+                }
+                if (n > 0) geneCounts.push({ gene, n });
+            }
+            geneCounts.sort((a, b) => b.n - a.n);
+            geneCounts.forEach(({ gene, n }) => {
+                const opt = document.createElement('option');
+                opt.value = gene;
+                opt.textContent = `${gene} (n=${n})`;
+                if (gene === activeTrans) opt.selected = true;
+                transSelect.appendChild(opt);
+            });
+        }
     }
 
     showCellLineDetail(cellLineId) {
@@ -12680,10 +12838,10 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         top += `</div>`;
 
         top += `<div class="clb-detail-section"><strong>Hotspot Mutations (${mutGenes.length})</strong>`;
-        top += `<div style="color:var(--gray-500); font-size:11px;">${mutGenes.length > 0 ? mutGenes.join(', ') : 'None'}</div></div>`;
+        top += `<div style="color:var(--gray-500); font-size:11px;">${mutGenes.length > 0 ? mutGenes.map(g => `<span class="gene-hover clb-gene-link" data-gene="${g}" style="cursor:help;">${g}</span>`).join(', ') : 'None'}</div></div>`;
 
         top += `<div class="clb-detail-section"><strong>Fusions (${fusionGenes.length})</strong>`;
-        top += `<div style="color:var(--gray-500); font-size:11px;">${fusionGenes.length > 0 ? fusionGenes.join(', ') : 'None'}</div></div>`;
+        top += `<div style="color:var(--gray-500); font-size:11px;">${fusionGenes.length > 0 ? fusionGenes.map(g => `<span class="gene-hover clb-gene-link" data-gene="${g}" style="cursor:help;">${g}</span>`).join(', ') : 'None'}</div></div>`;
 
         top += `<div class="clb-detail-section"><strong>Expression Stats</strong>`;
         top += `<div class="clb-stat-row"><span class="clb-stat-label">Genes</span><span class="clb-stat-value">${count.toLocaleString()}</span></div>`;
