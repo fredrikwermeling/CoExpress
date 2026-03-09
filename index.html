@@ -2199,8 +2199,8 @@
         <div class="modal" style="max-width: 860px; max-height: 90vh; overflow: auto; border-radius: 16px;">
             <div class="modal-header" style="background: linear-gradient(135deg, #2d5a27, #4a8c3f); color: white; border-radius: 16px 16px 0 0; padding: 24px 28px;">
                 <div>
-                    <h3 style="margin: 0; font-size: 22px; font-weight: 700;">How CoExpress Works</h3>
-                    <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.85; font-weight: 400;">Discovering gene co-expression patterns across cancer cell lines</p>
+                    <h3 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">How CoExpress Works</h3>
+                    <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.85; font-weight: 400; color: white;">Discovering gene co-expression patterns across cancer cell lines</p>
                 </div>
                 <button class="modal-close" id="closeInfoGraphic" style="color: white; opacity: 0.8;">&times;</button>
             </div>
@@ -2250,9 +2250,9 @@
                     <!-- Scatter example -->
                     <div style="margin-top: 20px; text-align: center;">
                         <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; display: inline-block; padding: 10px; max-width: 420px;">
-                            <img src="scatter_example.svg" alt="TSC1 vs TSC2 scatter plot showing strong positive correlation (r=0.90)" style="max-width: 100%; height: auto; border-radius: 6px;">
+                            <img src="scatter_example.svg" alt="BRCA1 vs BRCA2 scatter plot showing strong positive correlation (r=0.71)" style="max-width: 100%; height: auto; border-radius: 6px;">
                             <p style="margin: 8px 0 0; font-size: 12px; color: #666; line-height: 1.4;">
-                                <strong>Example:</strong> TSC1 vs TSC2 expression across 1,186 cell lines (r = 0.90). These genes form the TSC complex, reflected by their tightly correlated expression.
+                                <strong>Example:</strong> BRCA1 vs BRCA2 expression across 1,699 cell lines (r = 0.71). These DNA repair genes are co-regulated, reflected by their correlated expression.
                             </p>
                         </div>
                     </div>
@@ -2268,7 +2268,7 @@
                         <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; display: inline-block; padding: 10px; max-width: 520px;">
                             <img src="network_example.svg" alt="Correlation network showing gene relationships" style="max-width: 100%; height: auto; border-radius: 6px;">
                             <p style="margin: 8px 0 0; font-size: 12px; color: #666; line-height: 1.4;">
-                                <strong>Example network:</strong> Genes cluster by functional relationships. TSC1&ndash;TSC2 (thick blue edge) are tightly co-expressed; TP53&ndash;MDM2 (red edge) show inverse expression.
+                                <strong>Example network:</strong> Genes cluster by functional relationships. BRCA1&ndash;BRCA2 (thick blue edge) are tightly co-expressed; edge thickness reflects correlation strength.
                                 <br>Double-click a <strong>node</strong> to see its expression profile, or an <strong>edge</strong> to view the scatter plot.
                             </p>
                         </div>

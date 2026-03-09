@@ -25,39 +25,43 @@
 </style>
 <rect width="100%" height="100%" fill="white"/>
 
-  <line x1="570.4935060134594" y1="354.53162686626933" x2="510.67259047937875" y2="229.3678651334236" stroke="#3182ce" stroke-width="3.890331627809774" opacity="0.8"/>
-  <line x1="570.4935060134594" y1="354.53162686626933" x2="440.72813539337676" y2="351.7706615339271" stroke="#e53e3e" stroke-width="6.2450406326787515" opacity="0.8"/>
-  <line x1="400.2339771856914" y1="255.13687490195065" x2="287.95472033710917" y2="175.9892020414747" stroke="#3182ce" stroke-width="1.0978124059551069" opacity="0.8"/>
-  <line x1="420.4810562895341" y1="163.10469715721118" x2="339.4927398741633" y2="59.10833630565557" stroke="#3182ce" stroke-width="2.2337524284044625" opacity="0.8"/>
-  <line x1="420.4810562895341" y1="163.10469715721118" x2="476.62068471382514" y2="42.542544311602455" stroke="#3182ce" stroke-width="2.04442909132957" opacity="0.8"/>
-  <line x1="260.34506701368736" y1="279.0652411155829" x2="351.45692298097947" y2="380.3006366347964" stroke="#3182ce" stroke-width="1.1688086573581917" opacity="0.8"/>
-  <line x1="510.67259047937875" y1="229.3678651334236" x2="440.72813539337676" y2="351.7706615339271" stroke="#e53e3e" stroke-width="3.192201822346107" opacity="0.8"/>
-  <line x1="339.4927398741633" y1="59.10833630565557" x2="476.62068471382514" y2="42.542544311602455" stroke="#3182ce" stroke-width="8.067277752024594" opacity="0.8"/>
-  <line x1="613.748629553487" y1="248.6946224598189" x2="576.9357584555912" y2="117.08860828484144" stroke="#3182ce" stroke-width="3.2868634908835532" opacity="0.8"/>
-  <circle cx="570.4935060134594" cy="354.53162686626933" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="570.4935060134594" y="390.4241761867178" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">TP53</text>
-  <circle cx="510.67259047937875" cy="229.3678651334236" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="510.67259047937875" y="265.260414453872" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">ATM</text>
-  <circle cx="440.72813539337676" cy="351.7706615339271" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="440.72813539337676" y="387.66321085437556" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">MDM2</text>
-  <circle cx="400.2339771856914" cy="255.13687490195065" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="400.2339771856914" y="291.0294242223991" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">BRCA1</text>
-  <circle cx="287.95472033710917" cy="175.9892020414747" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="287.95472033710917" y="211.88175136192308" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">BRCA2</text>
-  <circle cx="420.4810562895341" cy="163.10469715721118" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="420.4810562895341" y="198.99724647765956" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">PTEN</text>
-  <circle cx="339.4927398741633" cy="59.10833630565557" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="339.4927398741633" y="95.00088562610398" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">TSC1</text>
-  <circle cx="476.62068471382514" cy="42.542544311602455" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="476.62068471382514" y="78.43509363205087" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">TSC2</text>
-  <circle cx="260.34506701368736" cy="279.0652411155829" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="260.34506701368736" y="314.95779043603136" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">PIK3CA</text>
-  <circle cx="351.45692298097947" cy="380.3006366347964" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="351.45692298097947" y="416.1931859552448" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">ERBB2</text>
-  <circle cx="613.748629553487" cy="248.6946224598189" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="613.748629553487" y="284.58717178026734" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">BCR</text>
-  <circle cx="576.9357584555912" cy="117.08860828484144" r="23.00804443618487" fill="#5a9f4a" stroke="white" stroke-width="1.8406435548947897"/>
-  <text x="576.9357584555912" y="152.98115760528984" text-anchor="middle" style="font-family: Arial; font-size: 14.725148439158318px; fill: #333;">ABL1</text>
+  <line x1="287.4851039301328" y1="176.21479467335183" x2="292.6992665368733" y2="307.4378869429888" stroke="#3182ce" stroke-width="4.883932308313643" opacity="0.8"/>
+  <line x1="287.4851039301328" y1="176.21479467335183" x2="383.07808505370946" y2="303.9617785384952" stroke="#3182ce" stroke-width="1.390443361797478" opacity="0.8"/>
+  <line x1="287.4851039301328" y1="176.21479467335183" x2="430.87457561549775" y2="144.06079193178516" stroke="#3182ce" stroke-width="1.4816912074154378" opacity="0.8"/>
+  <line x1="287.4851039301328" y1="176.21479467335183" x2="362.2214346267473" y2="203.15463480817797" stroke="#3182ce" stroke-width="1.3643725487637752" opacity="0.8"/>
+  <line x1="575.1330744019862" y1="303.9617785384952" x2="590.7755622222078" y2="175.34576757222843" stroke="#3182ce" stroke-width="1.924895028988384" opacity="0.8"/>
+  <line x1="383.07808505370946" y1="303.9617785384952" x2="430.87457561549775" y2="144.06079193178516" stroke="#3182ce" stroke-width="1.729363931235614" opacity="0.8"/>
+  <line x1="383.07808505370946" y1="303.9617785384952" x2="362.2214346267473" y2="203.15463480817797" stroke="#3182ce" stroke-width="1.9900720615726406" opacity="0.8"/>
+  <line x1="383.07808505370946" y1="303.9617785384952" x2="499.52771660424827" y2="250.08209826884288" stroke="#3182ce" stroke-width="1.5468682399996945" opacity="0.8"/>
+  <line x1="383.07808505370946" y1="303.9617785384952" x2="478.6710661772861" y2="380.43616343735647" stroke="#3182ce" stroke-width="1.8466825898872752" opacity="0.8"/>
+  <line x1="378.73294954809234" y1="66.71737993180042" x2="430.87457561549775" y2="144.06079193178516" stroke="#3182ce" stroke-width="0.9472395402245322" opacity="0.8"/>
+  <line x1="430.87457561549775" y1="144.06079193178516" x2="362.2214346267473" y2="203.15463480817797" stroke="#3182ce" stroke-width="2.1986385658422622" opacity="0.8"/>
+  <line x1="430.87457561549775" y1="144.06079193178516" x2="499.52771660424827" y2="250.08209826884288" stroke="#3182ce" stroke-width="1.742399337752465" opacity="0.8"/>
+  <line x1="362.2214346267473" y1="203.15463480817797" x2="499.52771660424827" y2="250.08209826884288" stroke="#3182ce" stroke-width="1.6120452725839514" opacity="0.8"/>
+  <line x1="499.52771660424827" y1="250.08209826884288" x2="515.17020442447" y2="115.38289759471216" stroke="#3182ce" stroke-width="1.103664418426748" opacity="0.8"/>
+  <line x1="499.52771660424827" y1="250.08209826884288" x2="478.6710661772861" y2="380.43616343735647" stroke="#3182ce" stroke-width="1.5468682399996945" opacity="0.8"/>
+  <circle cx="287.4851039301328" cy="176.21479467335183" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="287.4851039301328" y="210.10685161716538" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">BRCA1</text>
+  <circle cx="292.6992665368733" cy="307.4378869429888" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="292.6992665368733" y="341.32994388680237" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">BRCA2</text>
+  <circle cx="383.07808505370946" cy="303.9617785384952" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="383.07808505370946" y="337.85383548230874" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">APC</text>
+  <circle cx="430.87457561549775" cy="144.06079193178516" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="430.87457561549775" y="177.9528488755987" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">BRAF</text>
+  <circle cx="362.2214346267473" cy="203.15463480817797" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="362.2214346267473" y="237.0466917519915" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">ATM</text>
+  <circle cx="575.1330744019862" cy="303.9617785384952" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="575.1330744019862" y="337.85383548230874" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">EGFR</text>
+  <circle cx="590.7755622222078" cy="175.34576757222843" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="590.7755622222078" y="209.23782451604194" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">ERBB2</text>
+  <circle cx="499.52771660424827" cy="250.08209826884288" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="499.52771660424827" y="283.9741552126564" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">TSC1</text>
+  <circle cx="478.6710661772861" cy="380.43616343735647" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="478.6710661772861" y="414.32822038117" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">ABL1</text>
+  <circle cx="378.73294954809234" cy="66.71737993180042" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="378.73294954809234" y="100.60943687561395" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">PIK3CA</text>
+  <circle cx="515.17020442447" cy="115.38289759471216" r="21.725677528085598" fill="#5a9f4a" stroke="white" stroke-width="1.738054202246848"/>
+  <text x="515.17020442447" y="149.2749545385257" text-anchor="middle" style="font-family: Arial; font-size: 13.904433617974783px; fill: #333;">TSC2</text>
   <rect x="15" y="448" width="844" height="145" fill="#f9fafb" stroke="#e5e7eb" rx="4"/>
   <text x="277" y="473" class="legend-title">Correlation:</text>
   <line x1="277" y1="495" x2="312" y2="495" stroke="#3182ce" stroke-width="4"/>
@@ -66,9 +70,9 @@
   <text x="319" y="526" class="legend-text">Negative</text>
   <text x="437" y="473" class="legend-title">Edge Thickness:</text>
   <line x1="437" y1="495" x2="472" y2="495" stroke="#666" stroke-width="2"/>
-  <text x="479" y="500" class="legend-text">r = 0.30</text>
-  <line x1="437" y1="521" x2="472" y2="521" stroke="#666" stroke-width="8.000000000000002"/>
-  <text x="479" y="526" class="legend-text">r = 0.65</text>
-  <line x1="437" y1="547" x2="472" y2="547" stroke="#666" stroke-width="14"/>
-  <text x="479" y="552" class="legend-text">r = 1.00</text>
+  <text x="479" y="500" class="legend-text">r = 0.40</text>
+  <line x1="437" y1="521" x2="472" y2="521" stroke="#666" stroke-width="6.000000000000002"/>
+  <text x="479" y="526" class="legend-text">r = 0.60</text>
+  <line x1="437" y1="547" x2="472" y2="547" stroke="#666" stroke-width="10"/>
+  <text x="479" y="552" class="legend-text">r = 0.80</text>
 </svg>
