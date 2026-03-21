@@ -1430,11 +1430,7 @@ class CorrelationExplorer {
             } else if (x < boxAreaW + labelW) {
                 document.getElementById('mutationHotspotSelect').value = gene;
                 document.getElementById('tissueBreakdownBtn').style.display = 'inline-block';
-                this.showOncoprint();
-            } else {
-                document.getElementById('mutationHotspotSelect').value = gene;
-                document.getElementById('tissueBreakdownBtn').style.display = 'inline-block';
-                this.showOncoprint();
+                this.showOncoprint(this._oncoprintContext);
             }
         });
 
