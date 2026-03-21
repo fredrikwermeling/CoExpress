@@ -1380,14 +1380,15 @@
                         </div>
                     </div>
 
-                    <div class="form-group" id="minCellLinesGroup">
-                        <label class="form-label">Min Cell Lines:</label>
-                        <input type="number" id="minCellLines" class="form-control" value="25" min="3" max="500" style="width: 80px;">
-                    </div>
-
-                    <div class="form-group" id="pValueThresholdGroup" style="display: none;">
-                        <label class="form-label">P-value Threshold:</label>
-                        <input type="text" inputmode="decimal" id="pValueThreshold" class="form-control" value="0.001" style="width: 80px;">
+                    <div style="display:flex; gap:8px;" id="minCellLinesPvalRow">
+                        <div class="form-group" id="minCellLinesGroup" style="flex:1;">
+                            <label class="form-label" style="font-size:11px; margin-bottom:2px;">Min Cell Lines:</label>
+                            <input type="number" id="minCellLines" class="form-control" value="25" min="3" max="500" style="width:100%; font-size:12px; padding:3px 6px;">
+                        </div>
+                        <div class="form-group" id="pValueThresholdGroup" style="display:none; flex:1;">
+                            <label class="form-label" style="font-size:11px; margin-bottom:2px;">P-value:</label>
+                            <input type="text" inputmode="decimal" id="pValueThreshold" class="form-control" value="0.001" style="width:100%; font-size:12px; padding:3px 6px;">
+                        </div>
                     </div>
 
                     <div class="form-group" id="lineageFilterGroup" style="display: none;">
@@ -1416,20 +1417,26 @@
                     </div>
 
                     <div class="form-group" id="paramHotspotFilterGroup" style="display: none;">
-                        <label class="form-label">Hotspot Mutation Filter:</label>
-                        <select id="paramHotspotGene" class="form-control" style="margin-bottom: 4px;">
-                            <option value="">No filter</option>
-                        </select>
-                        <select id="paramHotspotLevel" class="form-control">
-                            <option value="all">All cells</option>
-                            <option value="0">Only WT (0 mutations)</option>
-                            <option value="1">Only 1 mutation</option>
-                            <option value="2">Only 2 mutations</option>
-                            <option value="1+2">Only mutated (1+2)</option>
-                        </select>
-                        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 9px; color: #92400e;">
-                            Selecting for mutations may introduce bias — mutations are often enriched in specific cancer types.
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <label class="form-label" style="margin-bottom:0;">Hotspot Mutation Filter:</label>
+                            <button id="oncoprintBtn" type="button" style="padding: 2px 8px; font-size: 10px; background: #5a9f4a; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Show oncoprint of top hotspot mutations">Oncoprint</button>
                         </div>
+                        <div id="paramHotspotControls">
+                            <select id="paramHotspotGene" class="form-control" style="margin-bottom: 4px;">
+                                <option value="">No filter</option>
+                            </select>
+                            <select id="paramHotspotLevel" class="form-control">
+                                <option value="all">All cells</option>
+                                <option value="0">Only WT (0 mutations)</option>
+                                <option value="1">Only 1 mutation</option>
+                                <option value="2">Only 2 mutations</option>
+                                <option value="1+2">Only mutated (1+2)</option>
+                            </select>
+                            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 9px; color: #92400e;">
+                                Selecting for mutations may introduce bias — mutations are often enriched in specific cancer types.
+                            </div>
+                        </div>
+                        <div id="oncoprintFilterLabel" style="display:none; font-size:11px; color:#5a9f4a; margin-top:4px; cursor:pointer;" title="Click to clear oncoprint filters"></div>
                     </div>
 
                     <div class="form-group" id="paramTranslocationFilterGroup" style="display: none;">
@@ -1791,7 +1798,19 @@
                         <button class="btn btn-secondary btn-sm" id="mutCompareByTissueBtn" title="Compare mutation effect across cancer types">Compare by Tissue</button>
                         <button class="btn btn-secondary btn-sm" id="mutCompareByHotspotBtn" title="Compare with other hotspot mutations">Compare by Hotspot</button>
                         <button class="btn btn-secondary btn-sm" id="mutCompareByFusionBtn" title="Compare with fusion genes" style="display: none;">Compare by Fusion</button>
-                        <button class="btn btn-secondary btn-sm enrichrBtn" data-source="mutations" title="Pathway enrichment analysis via Enrichr">Enrichr</button><a href="https://maayanlab.cloud/Enrichr/" target="_blank" rel="noopener" title="Enrichr — Ma'ayan Lab" style="color:#9ca3af; font-size:10px; margin-left:2px; text-decoration:none;">&#8599;</a>
+                        <select id="mutEnrichrFilter" style="font-size:10px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px;" title="Filter genes for Enrichr by comparison">
+                            <option value="all">All significant</option>
+                            <option value="filtered">Visible (filtered)</option>
+                            <option value="p_mut">p(1+2 vs 0) sig</option>
+                            <option value="p_2">p(2 vs 0) sig</option>
+                            <option value="p_2v1">p(2 vs 1) sig</option>
+                            <option value="diff_neg">Down-regulated</option>
+                            <option value="diff_pos">Up-regulated</option>
+                            <option value="top50">Top 50</option>
+                            <option value="top100">Top 100</option>
+                            <option value="top200">Top 200</option>
+                        </select>
+                        <button class="btn btn-secondary btn-sm" id="mutEnrichrBtn" title="Pathway enrichment analysis via Enrichr">Enrichr</button><a href="https://maayanlab.cloud/Enrichr/" target="_blank" rel="noopener" title="Enrichr — Ma'ayan Lab" style="color:#9ca3af; font-size:10px; margin-left:2px; text-decoration:none;">&#8599;</a>
                     </div>
                     <div class="table-container" style="max-height: 600px; overflow-y: auto;">
                         <table class="data-table" id="mutationTable">
@@ -2126,6 +2145,8 @@
                         <select id="geFusionFilter" class="form-control" style="width: 140px; font-size: 11px; padding: 3px 6px; display: none;" title="Fusion filter — only show cell lines with this fusion">
                             <option value="">No fusion filter</option>
                         </select>
+                        <span style="font-size:10px; color:#6b7280; white-space:nowrap;" title="Minimum cell lines per tissue group to display">Min n:</span>
+                        <input type="number" id="geMinGroupSize" value="1" min="1" max="50" style="width:40px; font-size:11px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px;" title="Minimum cell lines per tissue to show" onchange="app.switchGeneEffectView(app.currentGEView || 'tissue')">
                         <input type="text" id="geCellLineSearch" class="form-control" placeholder="Highlight cell line..." style="width: 140px; font-size: 11px; padding: 3px 6px;" title="Search and highlight a cell line in the plot">
                         <span id="geCompareButtons" style="display: none;">
                             <span style="border-left: 1px solid #d1d5db; height: 20px; margin: 0 2px;"></span>
@@ -2406,6 +2427,7 @@
           <select id="clbTranslocationFilter"><option value="">Translocation</option></select>
           <input type="text" id="clbSortGene" placeholder="Sort by gene..." style="width:120px;">
           <button id="clbSortDir" class="btn btn-outline btn-sm" title="Toggle sort direction" style="padding:4px 6px; font-size:10px; display:none;">&#x25B2;</button>
+          <button id="clbOncoprintBtn" type="button" style="padding:3px 6px; font-size:9px; background:#5a9f4a; color:white; border:none; border-radius:3px; cursor:pointer; white-space:nowrap;" title="Show oncoprint of hotspot mutations for filtered cell lines">Oncoprint</button>
           <button id="clbResetFilters" class="btn btn-outline btn-sm" title="Reset all filters">Reset</button>
           <span id="clbSelectionCount" class="clb-selection-count">0 selected</span>
           <div style="margin-left:auto; display:flex; gap:6px;">
