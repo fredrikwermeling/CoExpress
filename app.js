@@ -13915,6 +13915,8 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
     }
 
     openCellLineBrowser() {
+        this._oncoprintFilters = {};
+        this._activeOncoprintFilters = null;
         document.getElementById('clbTissueFilter').value = '';
         document.getElementById('clbSubtypeFilter').value = '';
         document.getElementById('clbHotspotFilter').value = '';
@@ -13934,6 +13936,10 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
 
     closeCellLineBrowser() {
         document.getElementById('cellLineBrowserModal').style.display = 'none';
+        this._oncoprintFilters = {};
+        this._activeOncoprintFilters = null;
+        this._oncoprintSyncFilters?.();
+        document.getElementById('oncoprintPopup')?.remove();
         document.querySelectorAll('.nav-link').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelector('[data-tab="network"]').classList.add('active');
