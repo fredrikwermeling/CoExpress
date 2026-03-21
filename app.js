@@ -1483,6 +1483,7 @@ class CorrelationExplorer {
 
         if (this._oncoprintContext === 'clb') {
             this.renderCellLineList();
+            this.updateClbFilterCounts();
         }
     }
 
@@ -13970,6 +13971,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
             if (activeTrans && this.translocations?.geneData) {
                 if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) continue;
             }
+            if (!this._cellLinePassesOncoprintFilters(cl)) continue;
             totalForTissue++;
             const lin = this.getCellLineLineage(cl);
             tissueCounts[lin] = (tissueCounts[lin] || 0) + 1;
@@ -13999,6 +14001,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
                 if (activeTrans && this.translocations?.geneData) {
                     if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) continue;
                 }
+                if (!this._cellLinePassesOncoprintFilters(cl)) continue;
                 totalForSubtype++;
                 const sub = this.getCellLineSublineage(cl);
                 if (sub) subtypeCounts[sub] = (subtypeCounts[sub] || 0) + 1;
