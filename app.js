@@ -1293,7 +1293,7 @@ class CorrelationExplorer {
             document.addEventListener('mouseup', onUp);
         });
 
-        this._oncoprintData = { topGenes, sortedCLs, cellW, cellH, boxAreaW, labelW, boxW, boxGap };
+        this._oncoprintData = { topGenes, sortedCLs, allFilteredCLs: filteredCLs, cellW, cellH, boxAreaW, labelW, boxW, boxGap };
         this._oncoprintContext = context;
 
         const self = this;
@@ -1634,7 +1634,7 @@ class CorrelationExplorer {
             return;
         }
 
-        const cls = data.sortedCLs;
+        const cls = data.allFilteredCLs || data.sortedCLs;
 
         const intersections = new Map();
         for (const cl of cls) {
@@ -1747,9 +1747,25 @@ class CorrelationExplorer {
             showlegend: false, xaxis: 'x', yaxis: 'y2'
         });
 
+        // Determine which bar matches the active oncoprint filter selection
+        const oncoFilters = Object.entries(this._oncoprintFilters || {}).filter(([, v]) => v !== 'none');
+        const barColors = sorted.map(s => {
+            if (oncoFilters.length === 0) return '#3b82f6';
+            const bits = s.key.split('');
+            let matches = true;
+            for (const [gene, state] of oncoFilters) {
+                const idx = upsetGenes.findIndex(g => g.gene === gene);
+                if (idx < 0) continue;
+                const isMut = bits[idx] === '1';
+                if (state === 'mut' && !isMut) { matches = false; break; }
+                if (state === 'wt' && isMut) { matches = false; break; }
+            }
+            return matches ? '#16a34a' : '#cbd5e1';
+        });
+
         const traces = [{
             x: barX, y: barY, type: 'bar',
-            marker: { color: '#3b82f6' },
+            marker: { color: barColors, line: { color: barColors.map(c => c === '#16a34a' ? '#15803d' : 'transparent'), width: barColors.map(c => c === '#16a34a' ? 2 : 0) } },
             text: this._upsetShowNames ? barLabels : barLabels.map(() => ''),
             textposition: 'inside', textangle: -90,
             textfont: { size: 9, color: 'white' },
@@ -11160,9 +11176,34 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
 
         // Show modal
         document.getElementById('geneEffectModal').style.display = 'flex';
+        this._updateGeOncoprintLabel();
 
         // Render the selected view
         this.switchGeneEffectView(view);
+    }
+
+    _updateGeOncoprintLabel() {
+        const el = document.getElementById('geOncoprintLabel');
+        const hotspotSelect = document.getElementById('geHotspotFilter');
+        const fusionSelect = document.getElementById('geFusionFilter');
+        if (!el) return;
+        if (this._activeOncoprintFilters && this._activeOncoprintFilters.length > 0) {
+            const filteredN = this.getGETissueFilteredData().length;
+            const totalN = this.currentGeneEffect?.data?.length || 0;
+            const tags = this._activeOncoprintFilters.map(f => {
+                const bg = f.state === 'mut' ? '#dcfce7' : '#fef2f2';
+                const color = f.state === 'mut' ? '#16a34a' : '#dc2626';
+                return `<span style="background:${bg};color:${color};padding:1px 6px;border-radius:10px;font-size:10px;">${f.gene} ${f.state === 'mut' ? 'Mut' : 'WT'}</span>`;
+            }).join(' ');
+            el.innerHTML = tags + ` <span style="font-size:10px;color:#6b7280;">(${filteredN}/${totalN} cell lines)</span>`;
+            el.style.display = 'inline-flex';
+            if (hotspotSelect) { hotspotSelect.style.opacity = '0.3'; hotspotSelect.style.pointerEvents = 'none'; }
+            if (fusionSelect) { fusionSelect.style.opacity = '0.3'; fusionSelect.style.pointerEvents = 'none'; }
+        } else {
+            el.style.display = 'none';
+            if (hotspotSelect) { hotspotSelect.style.opacity = ''; hotspotSelect.style.pointerEvents = ''; }
+            if (fusionSelect) { fusionSelect.style.opacity = ''; fusionSelect.style.pointerEvents = ''; }
+        }
     }
 
     switchGeneEffectView(view) {
@@ -11238,24 +11279,36 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
                 }
             }
         }
-        // Hotspot mutation filter
-        const paramHotspot = document.getElementById('paramHotspotGene')?.value;
-        const clbHotspot = document.getElementById('clbHotspotFilter')?.value;
-        const hotspot = paramHotspot || clbHotspot;
-        if (hotspot) {
-            const geHotspot = document.getElementById('geHotspotFilter');
-            if (geHotspot) geHotspot.value = hotspot;
+        // Hotspot/translocation — skip if oncoprint handles multi-gene filtering
+        if (!this._activeOncoprintFilters || this._activeOncoprintFilters.length === 0) {
+            // Hotspot mutation filter
+            const paramHotspot = document.getElementById('paramHotspotGene')?.value;
+            const clbHotspot = document.getElementById('clbHotspotFilter')?.value;
+            const hotspot = paramHotspot || clbHotspot;
+            if (hotspot) {
+                const geHotspot = document.getElementById('geHotspotFilter');
+                if (geHotspot) geHotspot.value = hotspot;
+            }
+            // Translocation filter
+            const paramTrans = document.getElementById('paramTranslocationGene')?.value;
+            const clbTrans = document.getElementById('clbTranslocationFilter')?.value;
+            const trans = paramTrans || clbTrans;
+            if (trans) {
+                const geFusion = document.getElementById('geFusionFilter');
+                if (geFusion) geFusion.value = trans;
+            }
         }
-        // Translocation filter
-        const paramTrans = document.getElementById('paramTranslocationGene')?.value;
-        const clbTrans = document.getElementById('clbTranslocationFilter')?.value;
-        const trans = paramTrans || clbTrans;
-        if (trans) {
-            const geFusion = document.getElementById('geFusionFilter');
-            if (geFusion) geFusion.value = trans;
-        }
+        // Show oncoprint filter label in GE modal
+        this._updateGeOncoprintLabel();
         // Re-render with the applied filters
         this.switchGeneEffectView(this.currentGEView || 'tissue');
+        // Update cell line count to reflect filters
+        const filteredData = this.getGETissueFilteredData();
+        const totalData = this.currentGeneEffect?.data?.length || 0;
+        const nEl = document.getElementById('geSummaryN');
+        if (nEl && filteredData.length < totalData) {
+            nEl.textContent = `${filteredData.length} of ${totalData}`;
+        }
     }
 
     showGeneEffectAnalysis(gene, view = 'tissue') {
@@ -11278,6 +11331,10 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         if (fusionGene && this.translocations?.geneData?.[fusionGene]) {
             const transData = this.translocations.geneData[fusionGene].translocations || {};
             data = data.filter(d => (transData[d.cellLineId] || 0) >= 1);
+        }
+        // Oncoprint multi-gene filters
+        if (this._activeOncoprintFilters && this._activeOncoprintFilters.length > 0) {
+            data = data.filter(d => this._cellLinePassesOncoprintFilters(d.cellLineId));
         }
         return data;
     }
@@ -11372,7 +11429,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         const layout = {
             title: { text: `${gene} by ${groupBySubtype ? 'Disease Subtype' : 'Cancer Type'}`, font: { size: 13 } },
             xaxis: {
-                title: 'Expression',
+                title: `${gene} Expression`,
                 zeroline: true,
                 zerolinecolor: '#374151',
                 zerolinewidth: 2
@@ -11606,7 +11663,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
         const layout = {
             title: { text: `${gene} Expression by Hotspot Mutation`, font: { size: 13 } },
             xaxis: {
-                title: 'Expression',
+                title: `${gene} Expression`,
                 zeroline: true,
                 zerolinecolor: '#374151',
                 zerolinewidth: 2
@@ -14242,9 +14299,15 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
             const transVal = document.getElementById('clbTranslocationFilter').value;
             if (tissueVal) filterParts.push(tissueVal);
             if (subtypeVal) filterParts.push(subtypeVal);
-            if (hotspotVal) filterParts.push(hotspotVal + ' mut');
-            if (transVal) filterParts.push(transVal + ' fus');
-            const filterLabel = filterParts.length > 0 ? filterParts.join(' / ') : `all (n=${filteredIndices.length})`;
+            if (hotspotVal) filterParts.push(hotspotVal + ' Mut');
+            if (transVal) filterParts.push(transVal + ' Fused');
+            if (this._activeOncoprintFilters) {
+                const shown = new Set([hotspotVal, transVal].filter(Boolean));
+                for (const f of this._activeOncoprintFilters) {
+                    if (!shown.has(f.gene)) filterParts.push(`${f.gene} ${f.state === 'mut' ? 'Mut' : 'WT'}`);
+                }
+            }
+            const filterLabel = `filtered (n=${filteredIndices.length})${filterParts.length > 0 ? ': ' + filterParts.join(', ') : ''}`;
 
             const extremeLow = zScores.slice(0, N);
             const extremeHigh = zScores.slice(-N).reverse();
