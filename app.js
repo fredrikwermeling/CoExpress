@@ -14107,7 +14107,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
             tissueCounts[lin] = (tissueCounts[lin] || 0) + 1;
         }
         tissueSelect.innerHTML = `<option value="">All tissues (n=${totalForTissue})</option>`;
-        Object.keys(tissueCounts).sort().forEach(lin => {
+        Object.keys(tissueCounts).sort((a, b) => tissueCounts[b] - tissueCounts[a]).forEach(lin => {
             const opt = document.createElement('option');
             opt.value = lin;
             opt.textContent = `${lin} (n=${tissueCounts[lin]})`;
@@ -14136,7 +14136,7 @@ ${filterText ? `<text x="${width / 2}" y="16" text-anchor="middle" style="font-f
                 const sub = this.getCellLineSublineage(cl);
                 if (sub) subtypeCounts[sub] = (subtypeCounts[sub] || 0) + 1;
             }
-            const subtypeKeys = Object.keys(subtypeCounts).sort();
+            const subtypeKeys = Object.keys(subtypeCounts).sort((a, b) => subtypeCounts[b] - subtypeCounts[a]);
             if (subtypeKeys.length === 0) {
                 subSelect.style.display = 'none';
                 subSelect.innerHTML = '<option value="">All subtypes</option>';
