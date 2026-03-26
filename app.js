@@ -730,8 +730,10 @@ class CorrelationExplorer {
         document.getElementById('correlationParams').style.display = hideParams ? 'none' : 'block';
         document.getElementById('slopeParams').style.display = hideParams ? 'none' : 'block';
 
-        // Hide min cell lines and filters for synonym mode
+        // Hide min cell lines, filters, exclude tissues, and find synonyms button for synonym mode
         document.getElementById('minCellLinesGroup').style.display = isSynonymMode ? 'none' : 'block';
+        document.getElementById('tissueExcludeGroup').style.display = isSynonymMode ? 'none' : '';
+        if (isSynonymMode) document.getElementById('findSynonyms').style.display = 'none';
         if (isSynonymMode) {
             document.getElementById('lineageFilterGroup').style.display = 'none';
             document.getElementById('subLineageFilterGroup').style.display = 'none';
@@ -1969,8 +1971,43 @@ class CorrelationExplorer {
             }
         }
 
+        // Handle sub-tissue selection
+        if (selectedSubtypes.length > 0) {
+            const parents = [...new Set(selectedSubtypes.map(s => s.parent))];
+            if (parents.length === 1 && (selectedTissues.length === 0 || (selectedTissues.length === 1 && selectedTissues[0] === parents[0]))) {
+                lineageSelect.value = parents[0];
+                lineageSelect.disabled = false;
+                lineageSelect.style.opacity = '';
+                this.excludedTissues = new Set();
+                this._pendingSubtypeSelection = selectedSubtypes.map(s => s.subtype);
+            }
+            const subtypeNames = selectedSubtypes.map(s => s.subtype);
+            let overrideLabel = lineageGroup?.querySelector('.tb-override-label');
+            if (!overrideLabel && lineageGroup) {
+                overrideLabel = document.createElement('div');
+                overrideLabel.className = 'tb-override-label';
+                overrideLabel.style.cssText = 'font-size: 11px; color: #5a9f4a; margin-top: 2px; cursor: pointer;';
+                overrideLabel.title = 'Click to clear tissue selection';
+                overrideLabel.addEventListener('click', () => { this.applyTissueBreakdownSelection([]); });
+                lineageGroup.appendChild(overrideLabel);
+            }
+            if (overrideLabel) {
+                overrideLabel.textContent = `Subtype: ${subtypeNames.join(', ')} (click to clear)`;
+            }
+        }
+
         // Trigger UI updates
         this.updateSubLineageFilter();
+
+        // Apply pending subtype selection after dropdown is populated
+        if (this._pendingSubtypeSelection) {
+            const subSelect = document.getElementById('subLineageFilter');
+            if (subSelect && this._pendingSubtypeSelection.length === 1) {
+                subSelect.value = this._pendingSubtypeSelection[0];
+            }
+            this._pendingSubtypeSelection = null;
+        }
+
         this.updateHotspotCountsForCurrentFilters();
     }
 
@@ -2193,10 +2230,19 @@ class CorrelationExplorer {
 
         // Load test genes (20 genes)
         document.getElementById('loadTestGenes').addEventListener('click', () => {
-            const testGenes = ['TP53', 'BRCA1', 'BRCA2', 'MYC', 'KRAS', 'EGFR', 'PTEN',
-                'RB1', 'APC', 'CDKN2A', 'NOTCH1', 'PIK3CA', 'BRAF',
-                'ATM', 'ERBB2', 'CDK4', 'MDM2', 'NRAS', 'TSC1', 'TSC2',
-                'BCR', 'ABL1'];
+            const mode = document.querySelector('input[name="analysisMode"]:checked')?.value;
+            let testGenes;
+            if (mode === 'synonym') {
+                // Mix of mouse orthologs, old aliases, and valid human genes to demo synonym lookup
+                testGenes = ['Trp53', 'Brca1', 'ERBB2', 'p21', 'Rb1', 'PTEN',
+                    'Myc', 'Kras', 'Braf', 'Akt1', 'Bcl2', 'mTOR',
+                    'CD8a', 'Foxp3', 'PD-1', 'PD-L1', 'CTLA4'];
+            } else {
+                testGenes = ['TP53', 'BRCA1', 'BRCA2', 'MYC', 'KRAS', 'EGFR', 'PTEN',
+                    'RB1', 'APC', 'CDKN2A', 'NOTCH1', 'PIK3CA', 'BRAF',
+                    'ATM', 'ERBB2', 'CDK4', 'MDM2', 'NRAS', 'TSC1', 'TSC2',
+                    'BCR', 'ABL1'];
+            }
             document.getElementById('geneTextarea').value = testGenes.join('\n');
             this.updateGeneCount();
         });
@@ -14029,8 +14075,17 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             this.renderCellLineList();
         });
         document.getElementById('clbSubtypeFilter').addEventListener('change', () => this.renderCellLineList());
-        document.getElementById('clbHotspotFilter').addEventListener('change', () => this.renderCellLineList());
-        document.getElementById('clbTranslocationFilter').addEventListener('change', () => this.renderCellLineList());
+        // Hotspot/translocation filters are now <input> + <datalist> — trigger on change and input
+        const clbHotspotInput = document.getElementById('clbHotspotFilter');
+        clbHotspotInput.addEventListener('change', () => this.renderCellLineList());
+        clbHotspotInput.addEventListener('input', () => {
+            if (!clbHotspotInput.value) this.renderCellLineList();
+        });
+        const clbTransInput = document.getElementById('clbTranslocationFilter');
+        clbTransInput.addEventListener('change', () => this.renderCellLineList());
+        clbTransInput.addEventListener('input', () => {
+            if (!clbTransInput.value) this.renderCellLineList();
+        });
         document.getElementById('clbOncoprintBtn')?.addEventListener('click', () => this.showOncoprint('clb'));
 
         let clbGeneTimer;
@@ -14409,9 +14464,8 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         }
 
         // --- Hotspot filter: count applying tissue/subtype/translocation filters ---
-        const hotspotSelect = document.getElementById('clbHotspotFilter');
-        hotspotSelect.innerHTML = '<option value="">Hotspot mutation</option>';
-        if (this.mutations?.geneData) {
+        const hotspotDatalist = document.getElementById('clbHotspotList');
+        if (hotspotDatalist && this.mutations?.geneData) {
             // Pre-filter cell lines by tissue, subtype, translocation
             const eligible = this.metadata.cellLines.filter(cl => {
                 if (activeTissue && this.getCellLineLineage(cl) !== activeTissue) return false;
@@ -14430,20 +14484,17 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 }
                 if (n > 0) geneCounts.push({ gene, n });
             }
-            geneCounts.sort((a, b) => a.gene.localeCompare(b.gene));
+            geneCounts.sort((a, b) => b.n - a.n);
+            let hHtml = '';
             geneCounts.forEach(({ gene, n }) => {
-                const opt = document.createElement('option');
-                opt.value = gene;
-                opt.textContent = `${gene} (n=${n})`;
-                if (gene === activeHotspot) opt.selected = true;
-                hotspotSelect.appendChild(opt);
+                hHtml += `<option value="${gene}">${gene} (n=${n})</option>`;
             });
+            hotspotDatalist.innerHTML = hHtml;
         }
 
         // --- Translocation filter: count applying tissue/subtype/hotspot filters ---
-        const transSelect = document.getElementById('clbTranslocationFilter');
-        transSelect.innerHTML = '<option value="">Translocation</option>';
-        if (this.translocations?.geneData) {
+        const transDatalist = document.getElementById('clbTranslocationList');
+        if (transDatalist && this.translocations?.geneData) {
             const eligible = this.metadata.cellLines.filter(cl => {
                 if (activeTissue && this.getCellLineLineage(cl) !== activeTissue) return false;
                 if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) return false;
@@ -14462,13 +14513,11 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 if (n > 0) geneCounts.push({ gene, n });
             }
             geneCounts.sort((a, b) => b.n - a.n);
+            let tHtml = '';
             geneCounts.forEach(({ gene, n }) => {
-                const opt = document.createElement('option');
-                opt.value = gene;
-                opt.textContent = `${gene} (n=${n})`;
-                if (gene === activeTrans) opt.selected = true;
-                transSelect.appendChild(opt);
+                tHtml += `<option value="${gene}">${gene} (n=${n})</option>`;
             });
+            transDatalist.innerHTML = tHtml;
         }
     }
 
