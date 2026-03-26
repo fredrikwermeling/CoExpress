@@ -6792,7 +6792,7 @@ Results:
         const filterText = this._getNetworkFilterText();
         const svgBannerFs = this._netBannerFontSize || 12; const bannerFs = svgBannerFs; const filterBannerHeight = filterText ? bannerFs + 14 : 0;
         const totalWidth = cssWidth;
-        const totalHeight = filterBannerHeight + cssHeight + legendHeight + padding;
+        const totalHeight = cssHeight + legendHeight + padding;
 
         const transparentBg = document.getElementById('exportNetworkTransparentBg')?.checked;
 
@@ -6823,10 +6823,10 @@ Results:
         }
 
         // Draw network scaled from canvas pixels to CSS dimensions
-        ctx.drawImage(networkCanvas, 0, filterBannerHeight, cssWidth, cssHeight);
+        ctx.drawImage(networkCanvas, 0, 0, cssWidth, cssHeight);
 
         // Draw legend background
-        const legendTop = filterBannerHeight + cssHeight;
+        const legendTop = cssHeight;
         if (!transparentBg) {
             ctx.fillStyle = '#f9fafb';
             ctx.strokeStyle = '#e5e7eb';
@@ -7133,7 +7133,7 @@ Results:
         const legendHeight = 160;  // Larger for publication
         const filterText = this._getNetworkFilterText();
         const svgBannerFs = this._netBannerFontSize || 12; const bannerFs = svgBannerFs; const filterBannerHeight = filterText ? bannerFs + 14 : 0;
-        const totalHeight = filterBannerHeight + networkHeight + legendHeight;
+        const totalHeight = networkHeight + legendHeight;
 
         // Get positions from vis.js and convert to DOM coordinates
         const positions = this.network.getPositions();
@@ -7141,7 +7141,7 @@ Results:
         for (const nodeId in positions) {
             const canvasPos = positions[nodeId];
             const domPos = this.network.canvasToDOM({ x: canvasPos.x, y: canvasPos.y });
-            domPositions[nodeId] = { x: domPos.x, y: domPos.y + filterBannerHeight };
+            domPositions[nodeId] = { x: domPos.x, y: domPos.y };
         }
 
         let svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -7206,7 +7206,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         });
 
         // Draw legend - LARGER for publication
-        const legendTop = filterBannerHeight + networkHeight;
+        const legendTop = networkHeight;
         const legendY = legendTop + 35;
 
         // Calculate total legend width to center it
@@ -8409,7 +8409,7 @@ Results:
         const legendHeight = 160;  // Larger for publication
         const filterText = this._getNetworkFilterText();
         const svgBannerFs = this._netBannerFontSize || 12; const bannerFs = svgBannerFs; const filterBannerHeight = filterText ? bannerFs + 14 : 0;
-        const totalHeight = filterBannerHeight + networkHeight + legendHeight;
+        const totalHeight = networkHeight + legendHeight;
 
         // Get positions from vis.js and convert to DOM coordinates
         const positions = this.network.getPositions();
@@ -8417,7 +8417,7 @@ Results:
         for (const nodeId in positions) {
             const canvasPos = positions[nodeId];
             const domPos = this.network.canvasToDOM({ x: canvasPos.x, y: canvasPos.y });
-            domPositions[nodeId] = { x: domPos.x, y: domPos.y + filterBannerHeight };
+            domPositions[nodeId] = { x: domPos.x, y: domPos.y };
         }
 
         let svg = `<?xml version="1.0" encoding="UTF-8"?>
