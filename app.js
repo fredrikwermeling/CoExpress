@@ -124,18 +124,22 @@ class CorrelationExplorer {
         this.updateLoadingText('Loading metadata...');
 
         // Load essential JSON files in parallel (synonyms loaded lazily on demand)
-        const [metadataRes, cellLineRes, mutationsRes, orthologsRes, translocationsRes] = await Promise.all([
+        const [metadataRes, cellLineRes, mutationsRes, orthologsRes, translocationsRes, damagingMutRes] = await Promise.all([
             fetch('web_data/metadata.json'),
             fetch('web_data/cellLineMetadata.json'),
             fetch('web_data/mutations.json'),
             fetch('web_data/orthologs.json'),
-            fetch('web_data/translocations.json').catch(() => null)
+            fetch('web_data/translocations.json').catch(() => null),
+            fetch('web_data/damaging_mutations.json').catch(() => null)
         ]);
 
         this.metadata = await metadataRes.json();
         this.cellLineMetadata = await cellLineRes.json();
         this.mutations = await mutationsRes.json();
         this.orthologs = await orthologsRes.json();
+        if (damagingMutRes && damagingMutRes.ok) {
+            this.damagingMutations = await damagingMutRes.json();
+        }
         if (translocationsRes && translocationsRes.ok) {
             this.translocations = await translocationsRes.json();
             // Pre-compute fusion gene counts for fast dropdown population
@@ -14112,6 +14116,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
 
     _precomputeCellLineCounts() {
         this._hotspotCountByCL = new Map();
+        this._damagingCountByCL = new Map();
         this._fusionCountByCL = new Map();
         const tally = (src, getInner, target) => {
             if (!src?.geneData) return;
@@ -14124,6 +14129,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             }
         };
         tally(this.mutations, d => d.mutations, this._hotspotCountByCL);
+        tally(this.damagingMutations, d => d.mutations, this._damagingCountByCL);
         tally(this.translocations, d => d.translocations, this._fusionCountByCL);
     }
 
@@ -14311,7 +14317,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             clbSortGene.style.display = (mode === 'ge') ? '' : 'none';
             const showDir = mode !== 'name' && !(mode === 'ge' && !clbSortGene.value.trim());
             clbSortDir.style.display = showDir ? '' : 'none';
-            if (mode === 'hotspot' || mode === 'fusion') this._clbSortAsc = false;
+            if (mode === 'hotspot' || mode === 'damaging' || mode === 'fusion') this._clbSortAsc = false;
             else this._clbSortAsc = true;
             clbSortDir.innerHTML = this._clbSortAsc ? '&#x25B2;' : '&#x25BC;';
         };
@@ -14534,8 +14540,10 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             } else {
                 secondaryCmp = (a, b) => this.getCellLineName(a).localeCompare(this.getCellLineName(b));
             }
-        } else if (mode === 'hotspot' || mode === 'fusion') {
-            const source = mode === 'hotspot' ? this._hotspotCountByCL : this._fusionCountByCL;
+        } else if (mode === 'hotspot' || mode === 'damaging' || mode === 'fusion') {
+            const source = mode === 'hotspot' ? this._hotspotCountByCL
+                         : mode === 'damaging' ? this._damagingCountByCL
+                         : this._fusionCountByCL;
             countMap = source;
             secondaryCmp = (a, b) => {
                 const va = source.get(a) || 0;
@@ -14851,6 +14859,9 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
 
         top += `<div class="clb-detail-section"><strong>Hotspot Mutations (${mutGenes.length})</strong>`;
         top += `<div style="color:var(--gray-500); font-size:11px;">${mutGenes.length > 0 ? mutGenes.map(g => `<span class="gene-hover clb-gene-link" data-gene="${g}" style="cursor:help;">${g}</span>`).join(', ') : 'None'}</div></div>`;
+
+        const damagingCount = this._damagingCountByCL?.get(cellLineId) || 0;
+        top += `<div class="clb-detail-section"><strong>Damaging Mutations (${damagingCount})</strong></div>`;
 
         top += `<div class="clb-detail-section"><strong>Fusions (${fusionGenes.length})</strong>`;
         top += `<div style="color:var(--gray-500); font-size:11px;">${fusionGenes.length > 0 ? fusionGenes.map(g => `<span class="gene-hover clb-gene-link" data-gene="${g}" style="cursor:help;">${g}</span>`).join(', ') : 'None'}</div></div>`;
