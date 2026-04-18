@@ -5187,14 +5187,14 @@ class CorrelationExplorer {
                 xref: 'paper',
                 yref: 'paper',
                 x: 0.5,
-                y: 1.35,
+                y: 1.45,
                 xanchor: 'center',
                 yanchor: 'top',
                 showarrow: false,
                 font: { size: 13 }
             }],
             xaxis: {
-                title: `${gene} Expression`,
+                title: { text: `${gene} Expression`, standoff: 20 },
                 range: [xMin, xMax]
             },
             yaxis: {
