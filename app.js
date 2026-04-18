@@ -5187,14 +5187,14 @@ class CorrelationExplorer {
                 xref: 'paper',
                 yref: 'paper',
                 x: 0.5,
-                y: 1.45,
+                y: 1.65,
                 xanchor: 'center',
                 yanchor: 'top',
                 showarrow: false,
                 font: { size: 13 }
             }],
             xaxis: {
-                title: { text: `${gene} Expression`, standoff: 20 },
+                title: { text: `${gene} Expression`, standoff: 30 },
                 range: [xMin, xMax]
             },
             yaxis: {
@@ -5206,7 +5206,7 @@ class CorrelationExplorer {
                 range: [-0.5, 2.5]
             },
             showlegend: false,
-            margin: { t: 160, r: 30, b: 55, l: 160 },
+            margin: { t: 180, r: 30, b: 75, l: 160 },
             height: Math.round(400 * (this.geChartHeightRatio || 1))
         };
 
