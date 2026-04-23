@@ -15201,131 +15201,179 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     }
 
     updateClbFilterCounts(filteredCellLines) {
-        const activeTissue = document.getElementById('clbTissueFilter').value;
-        const activeSubtype = document.getElementById('clbSubtypeFilter').value;
-        const activeHotspot = document.getElementById('clbHotspotFilter').value;
-        const activeTrans = document.getElementById('clbTranslocationFilter').value;
+        const tissue = document.getElementById('clbTissueFilter').value;
+        const subtype = document.getElementById('clbSubtypeFilter').value;
+        const collection = document.getElementById('clbCollectionFilter')?.value || '';
+        const sexFilter = document.getElementById('clbSexFilter')?.value || '';
+        const hotspotGene = document.getElementById('clbHotspotFilter').value;
+        const transGene = document.getElementById('clbTranslocationFilter').value;
 
-        // --- Tissue filter: count how many cell lines match all OTHER active filters ---
+        const hotspotMuts = hotspotGene && this.mutations?.geneData?.[hotspotGene]?.mutations;
+        const transMuts = transGene && this.translocations?.geneData?.[transGene]?.translocations;
+        const collectionSet = collection ? this._collectionMembership?.[collection] : null;
+        const allCls = this.metadata.cellLines;
+
+        // Counts shown in each dropdown are computed against the OTHER
+        // filters, so e.g. the tissue options show how many lines of each
+        // tissue would be left after applying the subtype/hotspot/etc.
+        // filters (but ignoring the tissue filter itself).
+        const getBaseSet = (excludeFilter) => {
+            return allCls.filter(cl => {
+                if (excludeFilter !== 'tissue' && tissue && this.getCellLineLineage(cl) !== tissue) return false;
+                if (excludeFilter !== 'subtype' && subtype && this.getCellLineSublineage(cl) !== subtype) return false;
+                if (excludeFilter !== 'collection' && collectionSet && !collectionSet.has(cl)) return false;
+                if (excludeFilter !== 'sex' && sexFilter && !this._cellLineMatchesSexFilter(cl, sexFilter)) return false;
+                if (excludeFilter !== 'hotspot' && hotspotMuts && !(hotspotMuts[cl] >= 1)) return false;
+                if (excludeFilter !== 'translocation' && transMuts && !(transMuts[cl] >= 1)) return false;
+                if (excludeFilter !== 'oncoprint' && !this._cellLinePassesOncoprintFilters(cl)) return false;
+                if (this._customCellLineFilterCLB && !this._customCellLineFilterCLB.has(cl)) return false;
+                return true;
+            });
+        };
+
+        // Sex filter — six options with live counts.
+        const sexBase = getBaseSet('sex');
+        const sexCounts = { ann_male: 0, ann_female: 0, exp_male: 0, exp_female: 0, unknown: 0 };
+        for (const cl of sexBase) {
+            for (const key of Object.keys(sexCounts)) {
+                if (this._cellLineMatchesSexFilter(cl, key)) sexCounts[key]++;
+            }
+        }
+        const sexSelect = document.getElementById('clbSexFilter');
+        if (sexSelect) {
+            const prev = sexSelect.value;
+            sexSelect.innerHTML =
+                `<option value="">All sexes (n=${sexBase.length})</option>` +
+                `<option value="ann_male">Male (by annotation) (n=${sexCounts.ann_male})</option>` +
+                `<option value="ann_female">Female (by annotation) (n=${sexCounts.ann_female})</option>` +
+                `<option value="exp_male">Male (by expression) (n=${sexCounts.exp_male})</option>` +
+                `<option value="exp_female">Female (by expression) (n=${sexCounts.exp_female})</option>` +
+                `<option value="unknown">Unknown (n=${sexCounts.unknown})</option>`;
+            sexSelect.value = prev;
+        }
+
+        // Collections — recount each curated set against the non-collection filter base.
+        const collectionBase = new Set(getBaseSet('collection'));
+        const collectionSelect = document.getElementById('clbCollectionFilter');
+        if (collectionSelect && this._collectionMembership) {
+            const prev = collectionSelect.value;
+            const catalog = this._curatedCollectionsCatalog();
+            const byCat = {};
+            for (const [id, def] of Object.entries(catalog)) {
+                const mem = this._collectionMembership[id];
+                if (!mem) continue;
+                let n = 0;
+                for (const cl of mem) if (collectionBase.has(cl)) n++;
+                if (!n) continue;
+                (byCat[def.category] = byCat[def.category] || []).push({ id, def, n });
+            }
+            collectionSelect.innerHTML = `<option value="">All collections (n=${collectionBase.size})</option>`;
+            for (const cat of Object.keys(byCat)) {
+                const og = document.createElement('optgroup');
+                og.label = cat;
+                for (const { id, def, n } of byCat[cat]) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = `${def.label} (n=${n})`;
+                    opt.title = def.description;
+                    og.appendChild(opt);
+                }
+                collectionSelect.appendChild(og);
+            }
+            collectionSelect.value = prev;
+        }
+
+        // Update tissue filter counts
+        const tissueBase = getBaseSet('tissue');
         const tissueSelect = document.getElementById('clbTissueFilter');
+        const tissueVal = tissueSelect.value;
+        tissueSelect.innerHTML = `<option value="">All tissues (n=${tissueBase.length})</option>`;
         const tissueCounts = {};
-        let totalForTissue = 0;
-        for (const cl of this.metadata.cellLines) {
-            // Apply all filters EXCEPT tissue
-            if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) continue;
-            if (activeHotspot && this.mutations?.geneData) {
-                if (!(this.mutations.geneData[activeHotspot]?.mutations?.[cl] >= 1)) continue;
-            }
-            if (activeTrans && this.translocations?.geneData) {
-                if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) continue;
-            }
-            if (!this._cellLinePassesOncoprintFilters(cl)) continue;
-            totalForTissue++;
+        tissueBase.forEach(cl => {
             const lin = this.getCellLineLineage(cl);
             tissueCounts[lin] = (tissueCounts[lin] || 0) + 1;
-        }
-        tissueSelect.innerHTML = `<option value="">All tissues (n=${totalForTissue})</option>`;
+        });
         Object.keys(tissueCounts).sort((a, b) => tissueCounts[b] - tissueCounts[a]).forEach(lin => {
             const opt = document.createElement('option');
             opt.value = lin;
             opt.textContent = `${lin} (n=${tissueCounts[lin]})`;
-            if (lin === activeTissue) opt.selected = true;
+            if (lin === tissueVal) opt.selected = true;
             tissueSelect.appendChild(opt);
         });
 
-        // --- Subtype filter: count within selected tissue, applying other filters ---
+        // Update subtype filter counts
+        const subtypeBase = getBaseSet('subtype');
         const subSelect = document.getElementById('clbSubtypeFilter');
-        if (!activeTissue) {
+        const subVal = subSelect.value;
+        if (tissue) {
+            const subCounts = {};
+            subtypeBase.forEach(cl => {
+                if (this.getCellLineLineage(cl) === tissue) {
+                    const sub = this.getCellLineSublineage(cl);
+                    if (sub) subCounts[sub] = (subCounts[sub] || 0) + 1;
+                }
+            });
+            subSelect.innerHTML = '<option value="">All subtypes</option>';
+            Object.keys(subCounts).sort((a, b) => subCounts[b] - subCounts[a]).forEach(sub => {
+                const opt = document.createElement('option');
+                opt.value = sub;
+                opt.textContent = `${sub} (n=${subCounts[sub]})`;
+                if (sub === subVal) opt.selected = true;
+                subSelect.appendChild(opt);
+            });
+            subSelect.style.display = Object.keys(subCounts).length > 0 ? '' : 'none';
+        } else {
             subSelect.style.display = 'none';
             subSelect.innerHTML = '<option value="">All subtypes</option>';
-        } else {
-            const subtypeCounts = {};
-            let totalForSubtype = 0;
-            for (const cl of this.metadata.cellLines) {
-                if (this.getCellLineLineage(cl) !== activeTissue) continue;
-                if (activeHotspot && this.mutations?.geneData) {
-                    if (!(this.mutations.geneData[activeHotspot]?.mutations?.[cl] >= 1)) continue;
-                }
-                if (activeTrans && this.translocations?.geneData) {
-                    if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) continue;
-                }
-                if (!this._cellLinePassesOncoprintFilters(cl)) continue;
-                totalForSubtype++;
-                const sub = this.getCellLineSublineage(cl);
-                if (sub) subtypeCounts[sub] = (subtypeCounts[sub] || 0) + 1;
-            }
-            const subtypeKeys = Object.keys(subtypeCounts).sort((a, b) => subtypeCounts[b] - subtypeCounts[a]);
-            if (subtypeKeys.length === 0) {
-                subSelect.style.display = 'none';
-                subSelect.innerHTML = '<option value="">All subtypes</option>';
-            } else {
-                subSelect.innerHTML = `<option value="">All subtypes (n=${totalForSubtype})</option>`;
-                subtypeKeys.forEach(sub => {
-                    const opt = document.createElement('option');
-                    opt.value = sub;
-                    opt.textContent = `${sub} (n=${subtypeCounts[sub]})`;
-                    if (sub === activeSubtype) opt.selected = true;
-                    subSelect.appendChild(opt);
+        }
+
+        // Update hotspot filter counts (datalist)
+        if (this.mutations?.geneData) {
+            const hotspotBase = getBaseSet('hotspot');
+            const hotspotBaseSet = new Set(hotspotBase);
+            const hotspotDatalist = document.getElementById('clbHotspotList');
+            if (hotspotDatalist) {
+                const geneCounts = [];
+                Object.keys(this.mutations.geneData).forEach(gene => {
+                    const muts = this.mutations.geneData[gene].mutations;
+                    let n = 0;
+                    for (const [cl, v] of Object.entries(muts)) {
+                        if (v > 0 && hotspotBaseSet.has(cl)) n++;
+                    }
+                    if (n > 0) geneCounts.push({ gene, n });
                 });
-                subSelect.style.display = '';
+                geneCounts.sort((a, b) => b.n - a.n);
+                let hHtml = '';
+                geneCounts.forEach(({ gene, n }) => {
+                    hHtml += `<option value="${gene}">${gene} (n=${n})</option>`;
+                });
+                hotspotDatalist.innerHTML = hHtml;
             }
         }
 
-        // --- Hotspot filter: count applying tissue/subtype/translocation filters ---
-        const hotspotDatalist = document.getElementById('clbHotspotList');
-        if (hotspotDatalist && this.mutations?.geneData) {
-            // Pre-filter cell lines by tissue, subtype, translocation
-            const eligible = this.metadata.cellLines.filter(cl => {
-                if (activeTissue && this.getCellLineLineage(cl) !== activeTissue) return false;
-                if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) return false;
-                if (activeTrans && this.translocations?.geneData) {
-                    if (!(this.translocations.geneData[activeTrans]?.translocations?.[cl] >= 1)) return false;
-                }
-                return true;
-            });
-            const geneCounts = [];
-            for (const gene of Object.keys(this.mutations.geneData)) {
-                const muts = this.mutations.geneData[gene].mutations;
-                let n = 0;
-                for (const cl of eligible) {
-                    if (muts[cl] >= 1) n++;
-                }
-                if (n > 0) geneCounts.push({ gene, n });
+        // Update translocation filter counts (datalist)
+        if (this.translocations?.geneData) {
+            const transBase = getBaseSet('translocation');
+            const transBaseSet = new Set(transBase);
+            const transDatalist = document.getElementById('clbTranslocationList');
+            if (transDatalist) {
+                const geneCounts = [];
+                Object.keys(this.translocations.geneData).forEach(gene => {
+                    const td = this.translocations.geneData[gene]?.translocations;
+                    if (!td) return;
+                    let n = 0;
+                    for (const [cl, v] of Object.entries(td)) {
+                        if (v >= 1 && transBaseSet.has(cl)) n++;
+                    }
+                    if (n > 0) geneCounts.push({ gene, n });
+                });
+                geneCounts.sort((a, b) => b.n - a.n);
+                let tHtml = '';
+                geneCounts.forEach(({ gene, n }) => {
+                    tHtml += `<option value="${gene}">${gene} (n=${n})</option>`;
+                });
+                transDatalist.innerHTML = tHtml;
             }
-            geneCounts.sort((a, b) => b.n - a.n);
-            let hHtml = '';
-            geneCounts.forEach(({ gene, n }) => {
-                hHtml += `<option value="${gene}">${gene} (n=${n})</option>`;
-            });
-            hotspotDatalist.innerHTML = hHtml;
-        }
-
-        // --- Translocation filter: count applying tissue/subtype/hotspot filters ---
-        const transDatalist = document.getElementById('clbTranslocationList');
-        if (transDatalist && this.translocations?.geneData) {
-            const eligible = this.metadata.cellLines.filter(cl => {
-                if (activeTissue && this.getCellLineLineage(cl) !== activeTissue) return false;
-                if (activeSubtype && this.getCellLineSublineage(cl) !== activeSubtype) return false;
-                if (activeHotspot && this.mutations?.geneData) {
-                    if (!(this.mutations.geneData[activeHotspot]?.mutations?.[cl] >= 1)) return false;
-                }
-                return true;
-            });
-            const geneCounts = [];
-            for (const gene of Object.keys(this.translocations.geneData)) {
-                const trans = this.translocations.geneData[gene].translocations;
-                let n = 0;
-                for (const cl of eligible) {
-                    if (trans[cl] >= 1) n++;
-                }
-                if (n > 0) geneCounts.push({ gene, n });
-            }
-            geneCounts.sort((a, b) => b.n - a.n);
-            let tHtml = '';
-            geneCounts.forEach(({ gene, n }) => {
-                tHtml += `<option value="${gene}">${gene} (n=${n})</option>`;
-            });
-            transDatalist.innerHTML = tHtml;
         }
     }
 
@@ -15821,48 +15869,90 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         corrInSel.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
         corrDiff.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
 
+        // Stash full result sets (unfiltered by cutoff) on the instance so
+        // the cutoff input can re-filter without re-running the heavy math,
+        // and the "Network" button can read from whichever side triggered it.
+        this._corrInspectResults = { selected, corrInSel, corrDiff };
+
+        document.getElementById('selectionInspectTitle').textContent = `Inspect Correlations — ${selected.length} selected cell lines`;
+        document.getElementById('selectionInspectSubtitle').textContent = `Left: strongest gene-pair expression correlations in the selection. Right: largest Δ (selection r − rest r). Click a row to open the correlation inspect for that pair; use the r-cutoff or the Network button to drill in.`;
+        document.getElementById('selectionInspectBody').innerHTML = `
+            <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                        <div style="font-weight:600; color:#374151;">Top correlations in selection</div>
+                        <div style="display:flex; gap:6px; align-items:center; font-size:11px;">
+                            <label>|r|&nbsp;&ge;</label>
+                            <input type="number" id="siLeftCutoff" min="0" max="1" step="0.05" value="0.3" style="width:60px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px; text-align:center;">
+                            <button class="btn btn-outline btn-sm" id="siLeftNetwork" style="font-size:11px; padding:3px 8px;" title="Build a correlation network from these gene pairs restricted to the selected cell lines">Network</button>
+                        </div>
+                    </div>
+                    <div id="siLeftHint" style="font-size:10px; color:#9ca3af; margin-bottom:6px;"></div>
+                    <div id="siLeftBody" style="max-height:58vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;"></div>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                        <div style="font-weight:600; color:#374151;">Most different vs rest (Δr)</div>
+                        <div style="display:flex; gap:6px; align-items:center; font-size:11px;">
+                            <label>|Δ|&nbsp;&ge;</label>
+                            <input type="number" id="siRightCutoff" min="0" max="2" step="0.05" value="0.3" style="width:60px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px; text-align:center;">
+                            <button class="btn btn-outline btn-sm" id="siRightNetwork" style="font-size:11px; padding:3px 8px;" title="Build a correlation network from these gene pairs restricted to the selected cell lines">Network</button>
+                        </div>
+                    </div>
+                    <div id="siRightHint" style="font-size:10px; color:#9ca3af; margin-bottom:6px;"></div>
+                    <div id="siRightBody" style="max-height:58vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;"></div>
+                </div>
+            </div>`;
+        document.getElementById('selectionInspectModal').style.display = 'flex';
+
+        const renderSides = () => this._renderCorrInspectTables();
+        document.getElementById('siLeftCutoff').addEventListener('input', renderSides);
+        document.getElementById('siRightCutoff').addEventListener('input', renderSides);
+        document.getElementById('siLeftNetwork').addEventListener('click', () => this._launchCorrelationNetwork('left'));
+        document.getElementById('siRightNetwork').addEventListener('click', () => this._launchCorrelationNetwork('right'));
+        renderSides();
+    }
+
+    // Render the two correlation tables in the Inspect Correlations modal,
+    // filtered by the current |r| / |Δ| cutoffs. Called on open and on
+    // cutoff input change.
+    _renderCorrInspectTables() {
+        if (!this._corrInspectResults) return;
+        const { corrInSel, corrDiff } = this._corrInspectResults;
+        const leftCut = parseFloat(document.getElementById('siLeftCutoff').value) || 0;
+        const rightCut = parseFloat(document.getElementById('siRightCutoff').value) || 0;
+        const leftFiltered = corrInSel.filter(r => Math.abs(r.r) >= leftCut).slice(0, 200);
+        const rightFiltered = corrDiff.filter(r => Math.abs(r.d) >= rightCut).slice(0, 200);
+
         const fmt = (v) => (isFinite(v) ? v.toFixed(3) : '-');
         const th = (t) => `<th style="padding:6px 8px; border-bottom:2px solid #d1d5db; text-align:left; font-size:11px;">${t}</th>`;
-        const leftRows = corrInSel.slice(0, 100).map(r => `
+        const leftRows = leftFiltered.map(r => `
             <tr class="si-row" data-g1="${r.g1}" data-g2="${r.g2}" style="cursor:pointer;">
-                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6;"><b>${r.g1}</b> &nbsp;×&nbsp; <b>${r.g2}</b></td>
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6;"><b>${r.g1}</b> &nbsp;&times;&nbsp; <b>${r.g2}</b></td>
                 <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:600; color:${r.r < 0 ? '#dc2626' : '#2563eb'};">${fmt(r.r)}</td>
             </tr>`).join('');
-        const rightRows = corrDiff.slice(0, 100).map(r => `
+        const rightRows = rightFiltered.map(r => `
             <tr class="si-row" data-g1="${r.g1}" data-g2="${r.g2}" style="cursor:pointer;">
-                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6;"><b>${r.g1}</b> &nbsp;×&nbsp; <b>${r.g2}</b></td>
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6;"><b>${r.g1}</b> &nbsp;&times;&nbsp; <b>${r.g2}</b></td>
                 <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; color:#374151;">${fmt(r.rSel)}</td>
                 <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; color:#6b7280;">${fmt(r.rOther)}</td>
                 <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:600; color:${r.d < 0 ? '#dc2626' : '#2563eb'};">${fmt(r.d)}</td>
             </tr>`).join('');
 
-        document.getElementById('selectionInspectTitle').textContent = `Inspect Correlations — ${selected.length} selected cell lines`;
-        document.getElementById('selectionInspectSubtitle').textContent = `Left: strongest gene-pair expression correlations in the selection. Right: largest Δ (selection r − rest r). Click any row to open the correlation inspect for that pair.`;
-        document.getElementById('selectionInspectBody').innerHTML = `
-            <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
-                <div style="flex:1; min-width:0;">
-                    <div style="font-weight:600; color:#374151; margin-bottom:4px;">Top correlations in selection</div>
-                    <div style="font-size:10px; color:#9ca3af; margin-bottom:6px;">Sorted by |r|, n=100.</div>
-                    <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;">
-                        <table style="width:100%; border-collapse:collapse; font-size:11px;">
-                            <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${th('Gene pair')}${th('r')}</tr></thead>
-                            <tbody>${leftRows}</tbody>
-                        </table>
-                    </div>
-                </div>
-                <div style="flex:1; min-width:0;">
-                    <div style="font-weight:600; color:#374151; margin-bottom:4px;">Most different vs rest (Δr)</div>
-                    <div style="font-size:10px; color:#9ca3af; margin-bottom:6px;">Sorted by |Δ| = |r(sel) − r(rest)|, n=100.</div>
-                    <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;">
-                        <table style="width:100%; border-collapse:collapse; font-size:11px;">
-                            <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${th('Gene pair')}${th('r sel')}${th('r rest')}${th('Δ')}</tr></thead>
-                            <tbody>${rightRows}</tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>`;
-        const body = document.getElementById('selectionInspectBody');
-        body.querySelectorAll('.si-row').forEach(tr => {
+        document.getElementById('siLeftHint').textContent = `${leftFiltered.length} pair(s) with |r| ≥ ${leftCut.toFixed(2)}.`;
+        document.getElementById('siRightHint').textContent = `${rightFiltered.length} pair(s) with |Δ| ≥ ${rightCut.toFixed(2)}.`;
+        document.getElementById('siLeftBody').innerHTML =
+            `<table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${th('Gene pair')}${th('r')}</tr></thead>
+                <tbody>${leftRows}</tbody>
+            </table>`;
+        document.getElementById('siRightBody').innerHTML =
+            `<table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${th('Gene pair')}${th('r sel')}${th('r rest')}${th('Δ')}</tr></thead>
+                <tbody>${rightRows}</tbody>
+            </table>`;
+
+        document.querySelectorAll('.si-row').forEach(tr => {
             tr.addEventListener('click', () => {
                 document.getElementById('selectionInspectModal').style.display = 'none';
                 this.openInspectByGenes(tr.dataset.g1, tr.dataset.g2);
@@ -15870,7 +15960,64 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             tr.addEventListener('mouseenter', () => tr.style.background = '#f0fdf4');
             tr.addEventListener('mouseleave', () => tr.style.background = '');
         });
-        document.getElementById('selectionInspectModal').style.display = 'flex';
+    }
+
+    // Build a correlation network from the currently-displayed gene pairs
+    // on the requested side (left = top correlations in selection, right
+    // = top Δ vs rest). Reuses the main analysis pipeline: populates the
+    // gene list, applies the cell-line selection as a custom filter, sets
+    // the cutoff, runs, and switches to the network view.
+    _launchCorrelationNetwork(side) {
+        const res = this._corrInspectResults;
+        if (!res) return;
+        const isLeft = side === 'left';
+        const pairs = isLeft ? res.corrInSel : res.corrDiff;
+        const scoreOf = isLeft ? (r => r.r) : (r => r.d);
+        const suggested = parseFloat(document.getElementById(isLeft ? 'siLeftCutoff' : 'siRightCutoff').value) || 0.3;
+
+        const cutStr = prompt(
+            `Correlation cutoff |${isLeft ? 'r' : 'Δr'}| for the network (0 – 1).\n\n` +
+            `Only gene pairs at or above this cutoff will become edges. A higher cutoff gives a sparser, more readable network.`,
+            suggested.toFixed(2)
+        );
+        if (cutStr === null) return;
+        const cut = parseFloat(cutStr);
+        if (isNaN(cut) || cut < 0) return;
+
+        const selected = res.selected || [];
+        const edges = pairs.filter(p => Math.abs(scoreOf(p)) >= cut);
+        if (!edges.length) { alert(`No pairs at |${isLeft ? 'r' : 'Δr'}| ≥ ${cut}. Try a lower cutoff.`); return; }
+        const genes = new Set();
+        edges.forEach(p => { genes.add(p.g1); genes.add(p.g2); });
+        if (genes.size > 300) {
+            if (!confirm(`${genes.size} genes / ${edges.length} pairs at this cutoff — that's a very dense network and may be slow to render. Continue?`)) return;
+        }
+
+        // Close the modals so the user sees the main analysis view.
+        document.getElementById('selectionInspectModal').style.display = 'none';
+        document.getElementById('cellLineBrowserModal').style.display = 'none';
+
+        // Populate the main gene-list textarea.
+        const taEl = document.getElementById('geneTextarea');
+        if (taEl) taEl.value = [...genes].join('\n');
+
+        // Apply the cell-line selection as a custom filter on the main view.
+        const customCLEl = document.getElementById('customCellLineFilter');
+        if (customCLEl) {
+            customCLEl.value = selected.join('\n');
+            try { this.applyCustomCellLineFilter?.(); } catch (e) { /* fall through */ }
+        }
+
+        // Set the correlation cutoff (clamped to the slider's 0.1–0.8 range).
+        const cutoffEl = document.getElementById('correlationCutoff');
+        if (cutoffEl) {
+            const clamped = Math.max(0.1, Math.min(0.8, cut));
+            cutoffEl.value = clamped.toFixed(2);
+            cutoffEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Kick off the analysis — this renders the network.
+        document.getElementById('runAnalysis')?.click();
     }
 
     exportCellLineBrowserCSV(mode) {
