@@ -180,6 +180,10 @@ class CorrelationExplorer {
         this.updateLoadingText('Loading expression matrix...');
         await this.loadGeneEffects();
 
+        // Compute curated-collection memberships (mutation-based and
+        // expression-based — expression IS loaded in CoExpress).
+        this._computeCollectionMemberships();
+
         // Update reference status
         document.getElementById('referenceStatus').className = 'status-box status-success';
         document.getElementById('referenceStatus').innerHTML =
@@ -14414,6 +14418,231 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         tally(this.translocations, d => d.translocations, this._fusionCountByCL);
     }
 
+    // Catalogue of curated multi-gene / phenotype cell-line collections.
+    // Each entry: { label, category, description, genes?: gene panel (for
+    // tooltip / UI only) }. Membership is computed by _computeCollectionMemberships.
+    // Kept as a plain map so we can add / tweak without touching the render code.
+    _curatedCollectionsCatalog() {
+        return {
+            msi: {
+                label: 'MMR-deficient / MSI-high',
+                category: 'DNA repair',
+                description: 'Damaging mutation in a core mismatch-repair gene (MLH1, MSH2, MSH6, PMS2, EPCAM). Typically hypermutated and microsatellite-unstable.'
+            },
+            hrd: {
+                label: 'HR-deficient / BRCAness',
+                category: 'DNA repair',
+                description: 'Damaging mutation in a homologous-recombination gene (BRCA1, BRCA2, PALB2, ATM, RAD51C, RAD51D, FANCA/C/D2, BRIP1).'
+            },
+            hypermutated: {
+                label: 'Hypermutated (top decile)',
+                category: 'Mutation burden',
+                description: 'Top 10 % of cell lines by count of damaging mutations. Data-driven; overlaps strongly with MMR-deficient but not identical.'
+            },
+            swi_snf: {
+                label: 'SWI/SNF-deficient',
+                category: 'Chromatin',
+                description: 'Damaging mutation in SWI/SNF complex subunits (ARID1A, ARID1B, ARID2, SMARCA4, SMARCB1, PBRM1).'
+            },
+            nrf2: {
+                label: 'NRF2-activated',
+                category: 'Oxidative-stress pathway',
+                description: 'Activating lesions in the KEAP1–NRF2 axis: hotspot or damaging mutation in NFE2L2, or damaging mutation in KEAP1.'
+            },
+            ne: {
+                label: 'Neuroendocrine phenotype',
+                category: 'Expression signature',
+                description: 'Top quintile for mean expression of the neuroendocrine marker panel (ASCL1, NEUROD1, CHGA, SYP). Captures SCLC-like and NE-transformed lines across lineages.'
+            },
+            emt: {
+                label: 'EMT-high',
+                category: 'Expression signature',
+                description: 'Mesenchymal-skewed: low CDH1 and high VIM / ZEB1 / SNAI1 / TWIST1 (composite z-score, top quintile).'
+            },
+            tnbc: {
+                label: 'Triple-negative breast (TNBC)',
+                category: 'Breast subtype',
+                description: 'Breast lineage with low ESR1 and PGR expression and ERBB2 not amplified / high.'
+            },
+            hr_pos_breast: {
+                label: 'HR+ breast (luminal)',
+                category: 'Breast subtype',
+                description: 'Breast lineage with high ESR1 or PGR expression.'
+            },
+            her2_pos_breast: {
+                label: 'HER2+ breast',
+                category: 'Breast subtype',
+                description: 'Breast lineage with high ERBB2 expression (top quintile among breast cell lines).'
+            }
+        };
+    }
+
+    // Compute which cell lines belong to each curated collection. In
+    // CoExpress this runs once after gene-effects (= expression) is loaded
+    // so both mutation-based and expression-based subsets compute together.
+    _computeCollectionMemberships() {
+        const mem = {};
+        const clLines = this.metadata?.cellLines || [];
+        if (!clLines.length) { this._collectionMembership = mem; return; }
+
+        const hasDamaging = (gene, cl) =>
+            this.damagingMutations?.geneData?.[gene]?.mutations?.[cl] >= 1;
+        const hasHotspot = (gene, cl) =>
+            this.mutations?.geneData?.[gene]?.mutations?.[cl] >= 1;
+
+        const msiGenes = ['MLH1', 'MSH2', 'MSH6', 'PMS2', 'EPCAM'];
+        const hrdGenes = ['BRCA1', 'BRCA2', 'PALB2', 'ATM', 'RAD51C', 'RAD51D', 'FANCA', 'FANCC', 'FANCD2', 'BRIP1'];
+        const swsnfGenes = ['ARID1A', 'ARID1B', 'ARID2', 'SMARCA4', 'SMARCB1', 'PBRM1'];
+
+        mem.msi = new Set();
+        mem.hrd = new Set();
+        mem.swi_snf = new Set();
+        mem.nrf2 = new Set();
+        for (const cl of clLines) {
+            if (msiGenes.some(g => hasDamaging(g, cl))) mem.msi.add(cl);
+            if (hrdGenes.some(g => hasDamaging(g, cl))) mem.hrd.add(cl);
+            if (swsnfGenes.some(g => hasDamaging(g, cl))) mem.swi_snf.add(cl);
+            if (hasHotspot('NFE2L2', cl) || hasDamaging('NFE2L2', cl) || hasDamaging('KEAP1', cl)) mem.nrf2.add(cl);
+        }
+
+        // Hypermutated: top decile by damaging-mutation count.
+        const counts = clLines.map(cl => ({ cl, n: this._damagingCountByCL?.get(cl) || 0 }));
+        counts.sort((a, b) => b.n - a.n);
+        const top10pct = Math.max(1, Math.ceil(counts.length / 10));
+        mem.hypermutated = new Set(counts.slice(0, top10pct).map(c => c.cl));
+
+        // Expression-based collections. In CoExpress, geneEffects IS the
+        // expression matrix and geneIndex is the expression gene index.
+        if (this.geneEffects && this.geneIndex && this.geneIndex.size) {
+            const nCL = this.nCellLines;
+            const exprFor = (gene, clIdx) => {
+                const gi = this.geneIndex.get(gene);
+                if (gi === undefined) return NaN;
+                return this.geneEffects[gi * nCL + clIdx];
+            };
+
+            // Neuroendocrine: top-quintile mean expression of ASCL1/NEUROD1/CHGA/SYP.
+            const neGenes = ['ASCL1', 'NEUROD1', 'CHGA', 'SYP'];
+            const neScores = [];
+            for (let i = 0; i < nCL; i++) {
+                let s = 0, n = 0;
+                for (const g of neGenes) {
+                    const v = exprFor(g, i);
+                    if (!isNaN(v)) { s += v; n++; }
+                }
+                neScores.push({ cl: clLines[i], score: n > 0 ? s / n : -Infinity });
+            }
+            neScores.sort((a, b) => b.score - a.score);
+            const neCut = Math.ceil(neScores.length / 5);
+            mem.ne = new Set(neScores.slice(0, neCut).map(s => s.cl));
+
+            // EMT: composite z-score across population. High VIM/ZEB1/SNAI1/TWIST1
+            // minus CDH1. Top quintile.
+            const emtUp = ['VIM', 'ZEB1', 'SNAI1', 'TWIST1'];
+            const emtDn = ['CDH1'];
+            const zFor = (gene) => {
+                const gi = this.geneIndex.get(gene);
+                if (gi === undefined) return null;
+                const off = gi * nCL;
+                const vals = [];
+                for (let i = 0; i < nCL; i++) { const v = this.geneEffects[off + i]; if (!isNaN(v)) vals.push(v); }
+                if (vals.length < 3) return null;
+                const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+                const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length);
+                return { off, mean, sd };
+            };
+            const upZ = emtUp.map(zFor).filter(x => x && x.sd > 0);
+            const dnZ = emtDn.map(zFor).filter(x => x && x.sd > 0);
+            if (upZ.length) {
+                const emtScores = [];
+                for (let i = 0; i < nCL; i++) {
+                    let s = 0, n = 0;
+                    for (const z of upZ) { const v = this.geneEffects[z.off + i]; if (!isNaN(v)) { s += (v - z.mean) / z.sd; n++; } }
+                    for (const z of dnZ) { const v = this.geneEffects[z.off + i]; if (!isNaN(v)) { s -= (v - z.mean) / z.sd; n++; } }
+                    emtScores.push({ cl: clLines[i], score: n > 0 ? s / n : -Infinity });
+                }
+                emtScores.sort((a, b) => b.score - a.score);
+                mem.emt = new Set(emtScores.slice(0, Math.ceil(emtScores.length / 5)).map(s => s.cl));
+            } else {
+                mem.emt = new Set();
+            }
+
+            // Breast subtypes. Compute per-breast thresholds (median for
+            // ESR1/PGR, top quintile for ERBB2) so calls are relative to
+            // the breast population rather than pan-cancer.
+            const breastLines = [];
+            for (let i = 0; i < nCL; i++) {
+                const cl = clLines[i];
+                if ((this.cellLineMetadata?.lineage?.[cl] || '').toLowerCase().includes('breast')) breastLines.push({ cl, i });
+            }
+            const pick = (gene, rows) => {
+                const gi = this.geneIndex.get(gene);
+                if (gi === undefined) return [];
+                const off = gi * nCL;
+                return rows.map(r => ({ cl: r.cl, v: this.geneEffects[off + r.i] })).filter(x => !isNaN(x.v));
+            };
+            const median = (arr) => {
+                if (!arr.length) return NaN;
+                const s = [...arr].sort((a, b) => a - b);
+                return s.length % 2 ? s[(s.length - 1) / 2] : 0.5 * (s[s.length / 2 - 1] + s[s.length / 2]);
+            };
+            const esr = pick('ESR1', breastLines);
+            const pgr = pick('PGR', breastLines);
+            const her = pick('ERBB2', breastLines);
+            const esrMed = median(esr.map(x => x.v));
+            const pgrMed = median(pgr.map(x => x.v));
+            // HER2+: top quintile of ERBB2 among breast lines.
+            const herSorted = [...her].sort((a, b) => b.v - a.v);
+            const herTop = new Set(herSorted.slice(0, Math.ceil(herSorted.length / 5)).map(x => x.cl));
+
+            mem.tnbc = new Set();
+            mem.hr_pos_breast = new Set();
+            mem.her2_pos_breast = new Set();
+            for (const { cl } of breastLines) {
+                const e = esr.find(x => x.cl === cl)?.v;
+                const p = pgr.find(x => x.cl === cl)?.v;
+                const isHer2 = herTop.has(cl);
+                const hrPos = (e !== undefined && e >= esrMed) || (p !== undefined && p >= pgrMed);
+                if (isHer2) mem.her2_pos_breast.add(cl);
+                if (hrPos && !isHer2) mem.hr_pos_breast.add(cl);
+                if (!hrPos && !isHer2) mem.tnbc.add(cl);
+            }
+        }
+
+        this._collectionMembership = mem;
+    }
+
+    // Populate the CLB collection dropdown from the catalog.
+    _populateCollectionFilter() {
+        const sel = document.getElementById('clbCollectionFilter');
+        if (!sel) return;
+        const prev = sel.value;
+        const catalog = this._curatedCollectionsCatalog();
+        const mem = this._collectionMembership || {};
+        // Group by category in <optgroup>s for readability.
+        const byCat = {};
+        for (const [id, def] of Object.entries(catalog)) {
+            if (!mem[id]) continue; // skip expression-based ones when not computed
+            const n = mem[id].size;
+            if (!n) continue;
+            (byCat[def.category] = byCat[def.category] || []).push({ id, def, n });
+        }
+        sel.innerHTML = '<option value="">All collections</option>';
+        for (const cat of Object.keys(byCat)) {
+            const og = document.createElement('optgroup');
+            og.label = cat;
+            for (const { id, def, n } of byCat[cat]) {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = `${def.label} (n=${n})`;
+                opt.title = def.description;
+                og.appendChild(opt);
+            }
+            sel.appendChild(og);
+        }
+        sel.value = prev || '';
+    }
+
     _getCellLineSex(cl) {
         const meta = this.cellLineMetadata;
         return {
@@ -14576,6 +14805,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             this.renderCellLineList();
         });
         document.getElementById('clbSubtypeFilter').addEventListener('change', () => this.renderCellLineList());
+        document.getElementById('clbCollectionFilter').addEventListener('change', () => this.renderCellLineList());
         document.getElementById('clbSexFilter').addEventListener('change', () => this.renderCellLineList());
         // Hotspot/translocation filters are now <input> + <datalist> — trigger on change and input
         const clbHotspotInput = document.getElementById('clbHotspotFilter');
@@ -14702,6 +14932,11 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
 
         document.getElementById('clbExportMinimal').addEventListener('click', () => this.exportCellLineBrowserCSV('minimal'));
         document.getElementById('clbExportFull').addEventListener('click', () => this.exportCellLineBrowserCSV('full'));
+        document.getElementById('clbInspectGEBtn')?.addEventListener('click', () => this.inspectSelectionGE());
+        document.getElementById('clbInspectCorrBtn')?.addEventListener('click', () => this.inspectSelectionCorrelations());
+        document.getElementById('selectionInspectClose')?.addEventListener('click', () => {
+            document.getElementById('selectionInspectModal').style.display = 'none';
+        });
 
         // Gene tooltips on gene links in detail panel
         const geneLists = document.getElementById('clbDetailGeneLists');
@@ -14754,6 +14989,8 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         document.getElementById('clbTranslocationFilter').value = '';
         document.getElementById('clbSearch').value = '';
         document.getElementById('clbSortGene').value = '';
+        document.getElementById('clbCollectionFilter').value = '';
+        this._populateCollectionFilter();
         document.getElementById('clbDetailPanel').classList.remove('active');
         document.getElementById('clbDetailContent').style.display = 'none';
         document.getElementById('clbDetailPlaceholder').style.display = '';
@@ -14781,16 +15018,19 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         const search = document.getElementById('clbSearch').value.trim().toLowerCase();
         const tissue = document.getElementById('clbTissueFilter').value;
         const subtype = document.getElementById('clbSubtypeFilter').value;
+        const collection = document.getElementById('clbCollectionFilter')?.value || '';
         const sexFilter = document.getElementById('clbSexFilter').value;
         const hotspotGene = document.getElementById('clbHotspotFilter').value;
         const transGene = document.getElementById('clbTranslocationFilter').value;
 
         const hotspotMuts = hotspotGene && this.mutations?.geneData?.[hotspotGene]?.mutations;
         const transMuts = transGene && this.translocations?.geneData?.[transGene]?.translocations;
+        const collectionSet = collection ? this._collectionMembership?.[collection] : null;
 
         let filtered = this.metadata.cellLines.filter(cl => {
             if (tissue && this.getCellLineLineage(cl) !== tissue) return false;
             if (subtype && this.getCellLineSublineage(cl) !== subtype) return false;
+            if (collectionSet && !collectionSet.has(cl)) return false;
             if (sexFilter && !this._cellLineMatchesSexFilter(cl, sexFilter)) return false;
             if (hotspotMuts && !(hotspotMuts[cl] >= 1)) return false;
             if (transMuts && !(transMuts[cl] >= 1)) return false;
@@ -15305,6 +15545,332 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
 
     updateClbSelectionCount() {
         document.getElementById('clbSelectionCount').textContent = `${this._clbSelectedCellLines.size} selected`;
+    }
+
+    // Show/update a generic progress overlay. Call _hideProgress() to close.
+    _showProgress(title, status, pct) {
+        const overlay = document.getElementById('progressOverlay');
+        if (!overlay) return;
+        document.getElementById('progressTitle').textContent = title;
+        document.getElementById('progressStatus').textContent = status;
+        const bar = document.getElementById('progressBar');
+        if (bar) bar.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+        overlay.style.display = 'flex';
+    }
+    _hideProgress() {
+        const overlay = document.getElementById('progressOverlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    // Inspect Expression for the currently-selected cell lines. Fast
+    // (seconds). Produces two columns: lowest expression in selected, and
+    // genes most up vs the rest of the dataset. Clicking a row opens the
+    // expression inspect modal for that gene.
+    inspectSelectionGE() {
+        const selected = [...(this._clbSelectedCellLines || new Set())];
+        if (selected.length < 3) {
+            alert('Select at least 3 cell lines first.');
+            return;
+        }
+        const cellLines = this.metadata.cellLines;
+        const clIndexOf = new Map(cellLines.map((cl, i) => [cl, i]));
+        const selIdx = selected.map(cl => clIndexOf.get(cl)).filter(i => i !== undefined);
+        const selSet = new Set(selIdx);
+        const otherIdx = [];
+        for (let i = 0; i < this.nCellLines; i++) if (!selSet.has(i)) otherIdx.push(i);
+
+        const rows = []; // { gene, meanSel, meanOther, delta, nSel, nOther }
+        for (let g = 0; g < this.nGenes; g++) {
+            const off = g * this.nCellLines;
+            let sSum = 0, sN = 0;
+            for (const ci of selIdx) {
+                const v = this.geneEffects[off + ci];
+                if (!isNaN(v) && v !== -999) { sSum += v; sN++; }
+            }
+            if (sN < 3) continue;
+            let oSum = 0, oN = 0;
+            for (const ci of otherIdx) {
+                const v = this.geneEffects[off + ci];
+                if (!isNaN(v) && v !== -999) { oSum += v; oN++; }
+            }
+            if (oN < 3) continue;
+            const mS = sSum / sN;
+            const mO = oSum / oN;
+            rows.push({ gene: this.geneNames[g], meanSel: mS, meanOther: mO, delta: mS - mO, nSel: sN, nOther: oN });
+        }
+
+        // Left: most up in selected (highest mean expression).
+        const highest = [...rows].sort((a, b) => b.meanSel - a.meanSel).slice(0, 50);
+        // Right: largest positive Δ (most up in selected vs rest).
+        const selUp = [...rows].sort((a, b) => b.delta - a.delta).slice(0, 50);
+
+        const fmt = (v) => (isNaN(v) ? '-' : v.toFixed(3));
+        const renderTable = (title, hint, data, sideLabels) => {
+            const th = (t) => `<th style="padding:6px 8px; border-bottom:2px solid #d1d5db; text-align:left; font-size:11px;">${t}</th>`;
+            const trows = data.map(r => `
+                <tr class="si-row" data-gene="${r.gene}" style="cursor:pointer;">
+                    <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; font-weight:600; color:#15803d;">${r.gene}</td>
+                    <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right;">${fmt(r.meanSel)}</td>
+                    <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; color:#6b7280;">${fmt(r.meanOther)}</td>
+                    <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:600; color:${r.delta < 0 ? '#dc2626' : '#2563eb'};">${fmt(r.delta)}</td>
+                </tr>`).join('');
+            return `
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; color:#374151; margin-bottom:4px;">${title}</div>
+                    <div style="font-size:10px; color:#9ca3af; margin-bottom:6px;">${hint}</div>
+                    <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                            <thead style="background:#f9fafb; position:sticky; top:0;">
+                                <tr>${th('Gene')}${th(sideLabels[0])}${th(sideLabels[1])}${th('Δ')}</tr>
+                            </thead>
+                            <tbody>${trows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        };
+
+        const body = document.getElementById('selectionInspectBody');
+        document.getElementById('selectionInspectTitle').textContent = `Inspect Expression — ${selected.length} selected cell lines`;
+        document.getElementById('selectionInspectSubtitle').textContent = `Left: genes most highly expressed in the selected lines. Right: genes where the selected lines differ most from the rest (Δ = selected − rest). Click any row to open Expression inspect for that gene.`;
+        body.innerHTML = `
+            <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+                ${renderTable('Most highly expressed in selected', 'Highest mean expression in the selection (n=50).', highest, ['Mean Expr (sel)', 'Mean Expr (rest)'])}
+                ${renderTable('Most up vs rest', 'Largest positive Δ (n=50). More highly expressed in selected than in the rest.', selUp, ['Mean Expr (sel)', 'Mean Expr (rest)'])}
+            </div>`;
+        body.querySelectorAll('.si-row').forEach(tr => {
+            tr.addEventListener('click', () => {
+                const gene = tr.dataset.gene;
+                document.getElementById('selectionInspectModal').style.display = 'none';
+                this.openGeneEffectModal(gene, 'tissue');
+            });
+            tr.addEventListener('mouseenter', () => tr.style.background = '#f0fdf4');
+            tr.addEventListener('mouseleave', () => tr.style.background = '');
+        });
+        document.getElementById('selectionInspectModal').style.display = 'flex';
+    }
+
+    // Inspect Correlations for the selection: unbiased all-vs-all Pearson's r
+    // across the selected cell lines. O(nGenes^2 × nSel) in the worst case.
+    // Warn before running, show progress, allow cancel. Top-K heap used to
+    // avoid storing all pairs.
+    async inspectSelectionCorrelations() {
+        const selected = [...(this._clbSelectedCellLines || new Set())];
+        if (selected.length < 8) {
+            alert('Select at least 8 cell lines for a stable correlation (more is better).');
+            return;
+        }
+        const cellLines = this.metadata.cellLines;
+        const clIndexOf = new Map(cellLines.map((cl, i) => [cl, i]));
+        const selIdx = selected.map(cl => clIndexOf.get(cl)).filter(i => i !== undefined);
+        const selSet = new Set(selIdx);
+        const otherIdx = [];
+        for (let i = 0; i < this.nCellLines; i++) if (!selSet.has(i)) otherIdx.push(i);
+
+        const estSec = Math.round(0.0015 * this.nGenes * this.nGenes / 1e6 * (selIdx.length + otherIdx.length) / 500);
+        const cont = confirm(
+            `Unbiased all-vs-all correlation:\n\n` +
+            `Genes: ${this.nGenes}\n` +
+            `Selected cell lines: ${selIdx.length}\n` +
+            `Other cell lines: ${otherIdx.length}\n\n` +
+            `Estimated time: ~${Math.max(30, estSec)}–${Math.max(60, estSec * 2)} s on a typical laptop, longer on older hardware.\n\n` +
+            `Continue?`
+        );
+        if (!cont) return;
+
+        this._corrInspectCancelled = false;
+        const cancelBtn = document.getElementById('progressCancelBtn');
+        const onCancel = () => { this._corrInspectCancelled = true; };
+        cancelBtn.onclick = onCancel;
+        this._showProgress('Computing correlations', 'Centring gene vectors…', 0);
+
+        // Center each gene's vector within each subset so pairwise correlation
+        // is just dot(centred_i, centred_j) / (norm_i × norm_j).
+        const nGenes = this.nGenes;
+        const buildCentred = (indices) => {
+            const n = indices.length;
+            const centred = new Float32Array(nGenes * n);
+            const norms = new Float32Array(nGenes);
+            const keep = new Uint8Array(nGenes); // 0 if gene has <3 valid values or zero variance
+            for (let g = 0; g < nGenes; g++) {
+                const off = g * this.nCellLines;
+                let s = 0, cnt = 0;
+                for (let k = 0; k < n; k++) {
+                    const v = this.geneEffects[off + indices[k]];
+                    if (!isNaN(v) && v !== -999) { s += v; cnt++; }
+                }
+                if (cnt < 3) continue;
+                const mean = s / cnt;
+                let ss = 0;
+                const rowOff = g * n;
+                for (let k = 0; k < n; k++) {
+                    const v = this.geneEffects[off + indices[k]];
+                    const c = (!isNaN(v) && v !== -999) ? (v - mean) : 0;
+                    centred[rowOff + k] = c;
+                    ss += c * c;
+                }
+                if (ss > 1e-12) {
+                    norms[g] = Math.sqrt(ss);
+                    keep[g] = 1;
+                }
+            }
+            return { centred, norms, keep, n };
+        };
+
+        const _yield = () => new Promise(r => setTimeout(r, 0));
+        const selData = buildCentred(selIdx);
+        await _yield();
+        if (this._corrInspectCancelled) { this._hideProgress(); return; }
+        this._showProgress('Computing correlations', 'Computing correlations in selection…', 5);
+        await _yield();
+
+        // Top-K heap of best absolute correlations.
+        const TOPK = 200;
+        const pushHeap = (heap, item) => {
+            if (heap.length < TOPK) { heap.push(item); return; }
+            // Replace minimum if bigger.
+            let minIdx = 0;
+            for (let i = 1; i < heap.length; i++) if (Math.abs(heap[i].abs) < Math.abs(heap[minIdx].abs)) minIdx = i;
+            if (Math.abs(item.abs) > Math.abs(heap[minIdx].abs)) heap[minIdx] = item;
+        };
+
+        const corrInSel = [];                         // top correlations in selected
+        const corrDiff = [];                          // top Δ correlations (sel − rest)
+
+        // Compute correlation in selection.
+        const startSel = performance.now();
+        const chunk = 50;
+        for (let i = 0; i < nGenes; i++) {
+            if (this._corrInspectCancelled) { this._hideProgress(); return; }
+            if (!selData.keep[i]) continue;
+            const iOff = i * selData.n;
+            const ni = selData.norms[i];
+            for (let j = i + 1; j < nGenes; j++) {
+                if (!selData.keep[j]) continue;
+                const jOff = j * selData.n;
+                let dot = 0;
+                for (let k = 0; k < selData.n; k++) dot += selData.centred[iOff + k] * selData.centred[jOff + k];
+                const r = dot / (ni * selData.norms[j]);
+                if (!isFinite(r)) continue;
+                pushHeap(corrInSel, { g1: this.geneNames[i], g2: this.geneNames[j], r, abs: r });
+            }
+            if (i % chunk === 0) {
+                const pct = (i / nGenes) * 50;
+                const elapsed = (performance.now() - startSel) / 1000;
+                const eta = elapsed * (nGenes - i) / Math.max(1, i);
+                this._showProgress('Computing correlations', `In selection: gene ${i.toLocaleString()} of ${nGenes.toLocaleString()}, ~${Math.round(eta)} s remaining.`, pct);
+                await _yield();
+            }
+        }
+
+        if (this._corrInspectCancelled) { this._hideProgress(); return; }
+        this._showProgress('Computing correlations', 'Computing correlations in the rest…', 50);
+        await _yield();
+        const otherData = buildCentred(otherIdx);
+        await _yield();
+
+        // Compute correlation in rest AND Δ simultaneously. Reuse the same
+        // gene pairs from sel; not strictly all-vs-all in rest, but top-K
+        // Δ is our target.
+        // More correct: also scan pairs where rest is strong; so iterate
+        // fresh over all pairs, compute both r values, and push into two
+        // different top-K heaps.
+        const startRest = performance.now();
+        const corrInSel2 = []; // reset, we'll use one pass for everything
+        corrInSel.length = 0;
+        for (let i = 0; i < nGenes; i++) {
+            if (this._corrInspectCancelled) { this._hideProgress(); return; }
+            const inSel = selData.keep[i], inOther = otherData.keep[i];
+            if (!inSel && !inOther) continue;
+            const iOffS = i * selData.n, iOffO = i * otherData.n;
+            const niS = selData.norms[i], niO = otherData.norms[i];
+            for (let j = i + 1; j < nGenes; j++) {
+                if ((!selData.keep[j] && !otherData.keep[j])) continue;
+                let rS = NaN, rO = NaN;
+                if (inSel && selData.keep[j]) {
+                    let dot = 0;
+                    const jOff = j * selData.n;
+                    for (let k = 0; k < selData.n; k++) dot += selData.centred[iOffS + k] * selData.centred[jOff + k];
+                    rS = dot / (niS * selData.norms[j]);
+                }
+                if (inOther && otherData.keep[j]) {
+                    let dot = 0;
+                    const jOff = j * otherData.n;
+                    for (let k = 0; k < otherData.n; k++) dot += otherData.centred[iOffO + k] * otherData.centred[jOff + k];
+                    rO = dot / (niO * otherData.norms[j]);
+                }
+                if (isFinite(rS)) {
+                    pushHeap(corrInSel, { g1: this.geneNames[i], g2: this.geneNames[j], r: rS, abs: rS });
+                }
+                if (isFinite(rS) && isFinite(rO)) {
+                    const d = rS - rO;
+                    pushHeap(corrDiff, { g1: this.geneNames[i], g2: this.geneNames[j], rSel: rS, rOther: rO, d, abs: d });
+                }
+            }
+            if (i % chunk === 0) {
+                const pct = 50 + (i / nGenes) * 50;
+                const elapsed = (performance.now() - startRest) / 1000;
+                const eta = elapsed * (nGenes - i) / Math.max(1, i);
+                this._showProgress('Computing correlations', `Δ vs rest: gene ${i.toLocaleString()} of ${nGenes.toLocaleString()}, ~${Math.round(eta)} s remaining.`, pct);
+                await _yield();
+            }
+        }
+
+        this._hideProgress();
+        if (this._corrInspectCancelled) return;
+
+        corrInSel.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+        corrDiff.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+
+        const fmt = (v) => (isFinite(v) ? v.toFixed(3) : '-');
+        const th = (t) => `<th style="padding:6px 8px; border-bottom:2px solid #d1d5db; text-align:left; font-size:11px;">${t}</th>`;
+        const leftRows = corrInSel.slice(0, 100).map(r => `
+            <tr class="si-row" data-g1="${r.g1}" data-g2="${r.g2}" style="cursor:pointer;">
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6;"><b>${r.g1}</b> &nbsp;×&nbsp; <b>${r.g2}</b></td>
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:600; color:${r.r < 0 ? '#dc2626' : '#2563eb'};">${fmt(r.r)}</td>
+            </tr>`).join('');
+        const rightRows = corrDiff.slice(0, 100).map(r => `
+            <tr class="si-row" data-g1="${r.g1}" data-g2="${r.g2}" style="cursor:pointer;">
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6;"><b>${r.g1}</b> &nbsp;×&nbsp; <b>${r.g2}</b></td>
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; color:#374151;">${fmt(r.rSel)}</td>
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; color:#6b7280;">${fmt(r.rOther)}</td>
+                <td style="padding:4px 8px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:600; color:${r.d < 0 ? '#dc2626' : '#2563eb'};">${fmt(r.d)}</td>
+            </tr>`).join('');
+
+        document.getElementById('selectionInspectTitle').textContent = `Inspect Correlations — ${selected.length} selected cell lines`;
+        document.getElementById('selectionInspectSubtitle').textContent = `Left: strongest gene-pair expression correlations in the selection. Right: largest Δ (selection r − rest r). Click any row to open the correlation inspect for that pair.`;
+        document.getElementById('selectionInspectBody').innerHTML = `
+            <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; color:#374151; margin-bottom:4px;">Top correlations in selection</div>
+                    <div style="font-size:10px; color:#9ca3af; margin-bottom:6px;">Sorted by |r|, n=100.</div>
+                    <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                            <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${th('Gene pair')}${th('r')}</tr></thead>
+                            <tbody>${leftRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; color:#374151; margin-bottom:4px;">Most different vs rest (Δr)</div>
+                    <div style="font-size:10px; color:#9ca3af; margin-bottom:6px;">Sorted by |Δ| = |r(sel) − r(rest)|, n=100.</div>
+                    <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                            <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${th('Gene pair')}${th('r sel')}${th('r rest')}${th('Δ')}</tr></thead>
+                            <tbody>${rightRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+        const body = document.getElementById('selectionInspectBody');
+        body.querySelectorAll('.si-row').forEach(tr => {
+            tr.addEventListener('click', () => {
+                document.getElementById('selectionInspectModal').style.display = 'none';
+                this.openInspectByGenes(tr.dataset.g1, tr.dataset.g2);
+            });
+            tr.addEventListener('mouseenter', () => tr.style.background = '#f0fdf4');
+            tr.addEventListener('mouseleave', () => tr.style.background = '');
+        });
+        document.getElementById('selectionInspectModal').style.display = 'flex';
     }
 
     exportCellLineBrowserCSV(mode) {
