@@ -106,9 +106,24 @@ class CorrelationExplorer {
             await this.loadData();
             this.setupUI();
             this.hideLoading();
+            // URL-hash deep link: loading with #cell / #cells opens the
+            // cell-line browser directly (used by sibling apps to link in).
+            this._handleUrlHash();
+            window.addEventListener('hashchange', () => this._handleUrlHash());
         } catch (error) {
             console.error('Initialization error:', error);
             this.updateLoadingText('Error loading data: ' + error.message);
+        }
+    }
+
+    // Read window.location.hash and route to the appropriate view. Hash is the
+    // safest deep-link primitive for a static-page SPA (no server rewrite).
+    _handleUrlHash() {
+        const h = (window.location.hash || '').toLowerCase().replace(/^#/, '');
+        const CELL_BROWSER_ROUTES = ['cell', 'cells', 'cellbrowser', 'cellsbrowser', 'cell-line-browser', 'celllinebrowser', 'browser'];
+        if (CELL_BROWSER_ROUTES.includes(h)) {
+            try { this.openCellLineBrowser(); }
+            catch (e) { console.warn('Could not open cell-line browser from #cell route:', e); }
         }
     }
 
