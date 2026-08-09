@@ -19041,7 +19041,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         const gene2 = yType === 'growth' ? GR_LABEL : yType === 'geneset' ? GS_LABEL : document.getElementById('inspectGeneY').value.trim().toUpperCase();
 
         if ((!gene1 && !noGeneAxis(xType)) || (!gene2 && !noGeneAxis(yType))) {
-            alert('Please enter genes for GE/Expr axes.');
+            alert('Please enter genes for both axes.');
             return;
         }
 

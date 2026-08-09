@@ -2915,7 +2915,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom: 10px;">
                         <span id="mutationResultsCount">0 genes with p < 0.001</span>
-                        <span style="display:inline-flex; align-items:center; gap:4px;">
+                        <span style="display:none;">
                             <span style="font-size:10px; color:#9ca3af;">Measure:</span>
                             <button type="button" class="btn btn-outline btn-sm" data-mut-metric="ge" onclick="app.setMutAnalysisMetric('ge')" style="font-size:10px; padding:2px 8px; background:#f0fdf4; border-color:#6ba544; color:#4c782e; font-weight:700;" title="Compare CRISPR knockout effect between the mutant and wild-type groups">Expression</button>
                             <button type="button" class="btn btn-outline btn-sm" data-mut-metric="expr" onclick="app.setMutAnalysisMetric('expr')" style="font-size:10px; padding:2px 8px;" title="Compare mRNA expression between the mutant and wild-type groups, for example which genes are expressed differently in BRAF-mutant versus BRAF wild-type lines">mRNA expression</button>
@@ -3068,15 +3068,13 @@
                             <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
                                 <input type="text" id="inspectGeneX" class="form-control" style="flex: 1 1 70px; min-width: 60px; font-size: 12px; padding: 3px 8px;" placeholder="X gene">
                                 <select id="xAxisDataType" style="font-size: 10px; padding: 1px 4px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-                                    <option value="ge">GE</option>
-                                    <option value="expr">Expr</option>
+                                    <option value="ge">Expr</option>
                                     <option value="cn">CN</option>
                                 </select>
                                 <button class="btn btn-outline btn-sm" id="inspectSwapAxes" style="font-size: 11px; padding: 2px 6px; min-width: 26px;" title="Swap X and Y axes (gene names + data types)">&#8644;</button>
                                 <input type="text" id="inspectGeneY" class="form-control" style="flex: 1 1 70px; min-width: 60px; font-size: 12px; padding: 3px 8px;" placeholder="Y gene">
                                 <select id="yAxisDataType" style="font-size: 10px; padding: 1px 4px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-                                    <option value="ge">GE</option>
-                                    <option value="expr">Expr</option>
+                                    <option value="ge">Expr</option>
                                     <option value="cn">CN</option>
                                 </select>
                                 <button class="btn btn-primary btn-sm" id="updateInspectGenes" style="font-size: 11px; padding: 3px 12px; min-width: 92px; font-weight: 600;">Update</button>
@@ -3349,9 +3347,8 @@
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label id="geneEffectLabel" style="font-size: 13px; font-weight: 600; color: #374151; white-space: nowrap;">Expression:</label>
                             <input type="text" id="geneEffectSearch" class="form-control" placeholder="Gene symbol" style="width: 130px; font-size: 13px; padding: 6px 10px;">
-                            <select id="geDataType" title="Switch between expression (CRISPR knockout) and expression (log2-TPM+1) as the y-axis data" style="font-size: 12px; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff;">
-                                <option value="ge">GE</option>
-                                <option value="expr">Expression</option>
+                            <select id="geDataType" title="Expression (log2-TPM+1) as the y-axis data" style="font-size: 12px; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff;">
+                                <option value="ge">Expression</option>
                             </select>
                         </div>
                         <span id="geHotspotGeneGroup" style="display: none;">
