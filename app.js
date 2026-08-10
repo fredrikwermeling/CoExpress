@@ -400,6 +400,7 @@ class CorrelationExplorer {
         return {
             geneList: this.getGeneList(),
             mode: this.results?.mode,
+            analysisBasis: this.results?.basis || 'ge',
             cutoff: this.results?.cutoff,
             nCellLines: this.results?.nCellLines,
             networkSettings: this._captureNetworkSettings(),
@@ -5157,6 +5158,41 @@ class CorrelationExplorer {
         return this.geneEffects.subarray(start, start + this.nCellLines);
     }
 
+    // Which matrix the gene-set analysis correlates on: 'ge' (default) or
+    // 'expr'. Snapshot into _runBasis at run time so post-run consumers
+    // (cluster stats, below-cutoff rows) stay on the run's own basis even if
+    // the radio is flipped afterwards.
+    _analysisBasis() {
+        return document.querySelector('input[name="analysisBasis"]:checked')?.value || 'ge';
+    }
+
+    // Full-cohort vector for the current run's basis, in GE cell-line order.
+    // For expression, values are remapped through expressionCellLineMap; genes
+    // or lines without expression come back NaN and fall out via minN.
+    _analysisVector(gene) {
+        if (this._runBasis !== 'expr') {
+            const idx = this.geneIndex.get(gene);
+            return idx === undefined ? null : this.getGeneData(idx);
+        }
+        if (!this._exprVectorCache) this._exprVectorCache = new Map();
+        let v = this._exprVectorCache.get(gene);
+        if (v) return v;
+        v = new Float32Array(this.nCellLines);
+        const gi = this.expressionGeneIndex?.get(gene.toUpperCase());
+        if (gi === undefined || !this.expressionData) {
+            v.fill(NaN);
+        } else {
+            const nE = this.expressionMetadata.nCellLines;
+            const base = gi * nE;
+            for (let i = 0; i < this.nCellLines; i++) {
+                const e = this.expressionCellLineMap?.[i];
+                v[i] = (e === undefined || e === -1) ? NaN : this.expressionData[base + e];
+            }
+        }
+        this._exprVectorCache.set(gene, v);
+        return v;
+    }
+
     /**
      * Get expression value for a gene at a given GE cell-line index.
      * Returns NaN if expression data is not loaded or the gene/cell line is missing.
@@ -5255,6 +5291,9 @@ class CorrelationExplorer {
         });
 
         document.getElementById('minCellLines')?.addEventListener('change', () => this._markMutationRunStale());
+        document.querySelectorAll('input[name="analysisBasis"]').forEach(r => {
+            r.addEventListener('change', () => this._markMutationRunStale());
+        });
 
         // Gene textarea
         document.getElementById('geneTextarea').addEventListener('input', () => this.updateGeneCount());
@@ -5814,6 +5853,9 @@ class CorrelationExplorer {
         document.getElementById('setGateBBtn')?.addEventListener('click', () => this.startGateSelection('B'));
         document.getElementById('compareGatesBtn')?.addEventListener('click', () => this.compareGates());
         document.getElementById('clearGatesBtn')?.addEventListener('click', () => this.clearGates());
+        document.getElementById('gateAsFilterBtn')?.addEventListener('click', (e) => this.chooseGateAsFilter(e));
+        document.getElementById('clearGateFilterBtn')?.addEventListener('click', () => this.clearGateFilter());
+        document.getElementById('gateFilterPanelClear')?.addEventListener('click', () => this.clearGateFilter());
         document.getElementById('closeGateCompare')?.addEventListener('click', () => {
             document.getElementById('gateComparePanel').style.display = 'none';
         });
@@ -6730,7 +6772,7 @@ class CorrelationExplorer {
                 + `<div>${geneLink(h.original, h.replacement, true)} <span style="color:#9ca3af; font-size:10px;">${this.esc(h.source)}</span></div>`
             ).join('');
             synHtml = `<div style="background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:8px 10px; margin-top:6px;">
-                <div style="font-weight:600; color:#374151; margin-bottom:5px;">Suggested replacements${qi('These names are not in the data, but a known synonym or mouse ortholog is. Click a suggestion to replace that one name in your list, or Use all to replace every row. Keep my names leaves the list as typed; unmatched genes are then left out of the analysis.')}</div>
+                <div style="font-weight:600; font-size:12px; color:#374151; margin-bottom:5px;">Suggested replacements${qi('These names are not in the data, but a known synonym or mouse ortholog is. Click a suggestion to replace that one name in your list, or Use all to replace every row. Keep my names leaves the list as typed; unmatched genes are then left out of the analysis.')}</div>
                 <div style="${gridStyle}">${rows}</div>
                 <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
                     <button type="button" class="btn btn-sm" id="synApplyAllBtn" style="background:#4c782e; color:white; font-size:11px; padding:3px 10px;">Use all</button>
@@ -6755,7 +6797,7 @@ class CorrelationExplorer {
             let overflow = remaining.length > 10 ? `<div style="color:#9ca3af; margin-top:4px;">+${remaining.length - 10} more</div>` : '';
             const canSearchOnline = !this._synonymApiTried && remaining.some(g => !this._synonymApiHits?.has(g.toUpperCase()));
             remHtml = `<div style="background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:8px 10px; margin-top:6px;">
-                <div style="font-weight:600; color:#374151; margin-bottom:5px;">No match found${qi('No synonym or ortholog is known for these names. The names beside a gene are the closest spellings in the data: click one to use it instead. Names left unresolved are left out of the analysis.')}</div>
+                <div style="font-weight:600; font-size:12px; color:#374151; margin-bottom:5px;">No match found${qi('No synonym or ortholog is known for these names. The names beside a gene are the closest spellings in the data: click one to use it instead. Names left unresolved are left out of the analysis.')}</div>
                 ${rows ? `<div style="${gridStyle}">${rows}</div>` : ''}
                 ${noSugg.length ? `<div style="color:#6b7280; ${rows ? 'margin-top:5px;' : ''}">${rows ? 'Nothing close: ' : ''}${noSugg.map(g => this.esc(g)).join(', ')}</div>` : ''}
                 ${overflow}
@@ -7951,19 +7993,9 @@ class CorrelationExplorer {
         const results = [];
 
         const finish = () => {
-            results.sort((a, b) => b.nGenes - a.nGenes);
-            let html = '<div style="margin-top:4px; font-size:10px;">';
-            html += '<select id="bestFilterSelect" class="form-control" style="font-size:10px; padding:2px 4px;" onchange="if(this.value!==\'_none\'){document.getElementById(\'lineageFilter\').value=this.value;app.updateSubLineageFilter();app._refreshFilteredSelectors();app._markMutationRunStale();}">';
-            const allEntry = results.find(r => r.filter === 'All tissues');
-            const allGenes = allEntry ? allEntry.nGenes : 0;
-            html += `<option value="_none">Best filters (All: ${allGenes} genes):</option>`;
-            results.forEach(r => {
-                const filterVal = r.filter === 'All tissues' ? '' : r.filter;
-                html += `<option value="${filterVal}">${r.filter}, ${r.nGenes} genes (n=${r.n})</option>`;
-            });
-            html += '</select></div>';
+            this._bestFilterResults = results;
             const statusEl = document.getElementById('analysisStatus');
-            statusEl.innerHTML = html;
+            statusEl.innerHTML = this._bestFilterHtml('genes');
             if (btn) { btn.textContent = 'Best Filter'; btn.disabled = false; }
         };
 
@@ -7980,12 +8012,78 @@ class CorrelationExplorer {
                 const result = this.calculateCorrelations(geneList, 'analysis', cutoff, minN, 0, indices);
                 if (result.success && result.correlations.length > 0) {
                     const genes = new Set(); result.correlations.forEach(c => { genes.add(c.gene1); genes.add(c.gene2); });
-                    results.push({ filter: job === '__all__' ? 'All tissues' : job, n: indices.length, nGenes: genes.size });
+                    // Two different questions get two different scores:
+                    // "how much of the network survives here" (genes kept) and
+                    // "how tight are the relationships here" (mean |r| over the
+                    // surviving pairs, so a lineage with few but very strong
+                    // correlations can win). nPairs is carried so a single
+                    // lucky pair can be recognised as thin evidence.
+                    const meanR = result.correlations.reduce((a, c) => a + Math.abs(c.correlation), 0)
+                        / result.correlations.length;
+                    results.push({
+                        filter: job === '__all__' ? 'All tissues' : job,
+                        n: indices.length, nGenes: genes.size,
+                        nPairs: result.correlations.length, meanR
+                    });
                 }
             }
             setTimeout(() => step(k + 1), 0);
         };
         setTimeout(() => step(0), 50);
+    }
+
+    // The best-filter list, ranked either by how many genes stay connected in
+    // that lineage (breadth) or by the mean |r| of the surviving pairs
+    // (strength). Two genuinely different questions, so the user picks which
+    // one is being asked rather than one being declared "best".
+    _bestFilterHtml(rank) {
+        const results = (this._bestFilterResults || []).slice();
+        if (!results.length) return '';
+        const byStrength = rank === 'strength';
+        // A mean over one or two pairs is not evidence of a strong lineage, so
+        // the strength ranking asks for at least three pairs before a lineage
+        // can head the list; thinner ones still appear, below.
+        const MIN_PAIRS = 3;
+        results.sort((a, b) => {
+            if (!byStrength) return b.nGenes - a.nGenes;
+            const aThin = (a.nPairs || 0) < MIN_PAIRS, bThin = (b.nPairs || 0) < MIN_PAIRS;
+            if (aThin !== bThin) return aThin ? 1 : -1;
+            return (b.meanR || 0) - (a.meanR || 0);
+        });
+        const all = results.find(r => r.filter === 'All tissues');
+        const head = byStrength
+            ? `Strongest correlations (All: mean r=${all ? all.meanR.toFixed(2) : '-'}):`
+            : `Most connected (All: ${all ? all.nGenes : 0} genes):`;
+        // Set the real Lineage control and let it announce the change: its own
+        // listener updates the subtype list, the counts and the Run marker,
+        // and the searchable dropdown only refreshes its visible label on a
+        // change event. Assigning .value alone left the box reading "All
+        // lineages" while the analysis was filtered, with nothing to reset.
+        const onChange = "if(this.value!=='_none'){const l=document.getElementById('lineageFilter');l.value=this.value;l.dispatchEvent(new Event('change',{bubbles:true}));}";
+        let html = '<div style="margin-top:4px; font-size:10px;">';
+        // The column is narrow, so the label sits on its own line and each
+        // option stays on one line; they wrap as whole options if needed.
+        html += '<div style="color:#6b7280; margin-bottom:2px;">Rank by:</div>'
+            + '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:3px;">'
+            + `<label style="cursor:pointer; white-space:nowrap;"><input type="radio" name="bestFilterRank" value="genes"${byStrength ? '' : ' checked'} onchange="app._setBestFilterRank('genes')"> most genes</label>`
+            + `<label style="cursor:pointer; white-space:nowrap;" title="Average absolute correlation over the pairs that survive in that lineage, so a tissue with fewer but tighter relationships can come top."><input type="radio" name="bestFilterRank" value="strength"${byStrength ? ' checked' : ''} onchange="app._setBestFilterRank('strength')"> strongest r</label>`
+            + '</div>';
+        html += `<select id="bestFilterSelect" class="form-control" style="font-size:10px; padding:2px 4px;" onchange="${onChange}">`;
+        html += `<option value="_none">${head}</option>`;
+        results.forEach(r => {
+            const filterVal = r.filter === 'All tissues' ? '' : r.filter;
+            const label = byStrength
+                ? `${r.filter}, mean r=${(r.meanR || 0).toFixed(2)} over ${r.nPairs} pair${r.nPairs === 1 ? '' : 's'} (n=${r.n})`
+                : `${r.filter}, ${r.nGenes} genes (n=${r.n})`;
+            html += `<option value="${filterVal}">${label}</option>`;
+        });
+        html += '</select></div>';
+        return html;
+    }
+
+    _setBestFilterRank(rank) {
+        const statusEl = document.getElementById('analysisStatus');
+        if (statusEl) statusEl.innerHTML = this._bestFilterHtml(rank);
     }
 
     runAnalysis() {
@@ -8019,6 +8117,16 @@ class CorrelationExplorer {
         // Handle mutation analysis mode separately
         if (mode === 'mutation') {
             this.runMutationAnalysis();
+            return;
+        }
+
+        // The expression basis needs the expression matrix; it preloads in the
+        // background after startup, but a fast first Run can beat it. Load,
+        // then come back here once.
+        if (mode !== 'synonym' && this._analysisBasis() === 'expr' && !this.expressionLoaded) {
+            this.showStatus('info', 'Loading expression data, the analysis starts as soon as it is in…');
+            this.loadExpressionData().then(() => this.runAnalysis())
+                .catch(e => this.showStatus('error', 'Could not load expression data: ' + (e?.message || e)));
             return;
         }
 
@@ -10447,6 +10555,10 @@ class CorrelationExplorer {
     }
 
     calculateCorrelations(geneList, mode, cutoff, minN, minSlope, cellLineIndices, expandNetwork = false, includeGrowthRate = false) {
+        // Freeze the basis for this run; drop any expression-vector cache
+        // from a previous run so a data reload can't serve stale vectors.
+        this._runBasis = this._analysisBasis();
+        this._exprVectorCache = new Map();
         const correlations = [];
         // Pairs that fall just short of the cutoff, for the optional
         // "below cutoff" rows in the Correlations table.
@@ -10466,8 +10578,7 @@ class CorrelationExplorer {
         // Get gene data for input genes
         const inputData = new Map();
         geneList.forEach(gene => {
-            const idx = this.geneIndex.get(gene);
-            const fullData = this.getGeneData(idx);
+            const fullData = this._analysisVector(gene);
             const filteredData = cellLineIndices.map(i => fullData[i]);
             inputData.set(gene, filteredData);
         });
@@ -10499,8 +10610,7 @@ class CorrelationExplorer {
                 if (inputData.has(gene2)) {
                     data2 = inputData.get(gene2);
                 } else {
-                    const idx = this.geneIndex.get(gene2);
-                    const fullData = this.getGeneData(idx);
+                    const fullData = this._analysisVector(gene2);
                     data2 = cellLineIndices.map(i => fullData[i]);
                 }
 
@@ -10549,8 +10659,7 @@ class CorrelationExplorer {
                 // Cache gene data for discovered genes
                 const discoveredData = new Map();
                 discoveredArray.forEach(gene => {
-                    const idx = this.geneIndex.get(gene);
-                    const fullData = this.getGeneData(idx);
+                    const fullData = this._analysisVector(gene);
                     discoveredData.set(gene, cellLineIndices.map(i => fullData[i]));
                 });
 
@@ -10606,8 +10715,7 @@ class CorrelationExplorer {
                     return this.growthRateData[cl] ?? NaN;
                 }).filter(v => !isNaN(v));
             } else {
-                const idx = this.geneIndex.get(gene);
-                fullData = this.getGeneData(idx);
+                fullData = this._analysisVector(gene);
                 allValidData = Array.from(fullData).filter(v => !isNaN(v));
                 filteredData = cellLineIndices.map(i => fullData[i]).filter(v => !isNaN(v));
             }
@@ -10647,8 +10755,7 @@ class CorrelationExplorer {
                         return this.growthRateData[cl] ?? NaN;
                     }).filter(v => !isNaN(v));
                 } else {
-                    const idx = this.geneIndex.get(gene);
-                    const fullData = this.getGeneData(idx);
+                    const fullData = this._analysisVector(gene);
                     allValidData = Array.from(fullData).filter(v => !isNaN(v));
                     filteredData2 = cellLineIndices.map(i => fullData[i]).filter(v => !isNaN(v));
                 }
@@ -10683,6 +10790,7 @@ class CorrelationExplorer {
 
         return {
             success: true,
+            basis: this._runBasis,
             correlations: correlations,
             // Kept separate so nothing downstream (network, clusters, exports)
             // silently starts including pairs the user filtered out.
@@ -10871,7 +10979,24 @@ class CorrelationExplorer {
         document.getElementById('networkLoadingOverlay')?.remove();
     }
 
+    // The label/color checkboxes talk about the run's basis; on an
+    // expression network "expression" would mislabel every number they show.
+    _syncBasisNetworkLabels() {
+        const expr = this.results?.basis === 'expr';
+        const setLabel = (inputId, text) => {
+            const input = document.getElementById(inputId);
+            const label = input?.parentElement;
+            if (!label) return;
+            for (const n of label.childNodes) {
+                if (n.nodeType === 3 && n.textContent.trim()) { n.textContent = ' ' + text; return; }
+            }
+        };
+        setLabel('showGeneEffect', expr ? 'Show expression in label' : 'Show expression in label');
+        setLabel('colorByGeneEffect', expr ? 'Color by expression' : 'Color by expression');
+    }
+
     displayNetwork() {
+        this._syncBasisNetworkLabels();
         const container = document.getElementById('networkPlot');
         container.innerHTML = '';
 
@@ -10931,8 +11056,9 @@ class CorrelationExplorer {
             if (isSynonym) {
                 titleLines.push(`(synonym of ${originalName})`);
             }
-            titleLines.push(`Expr mean: ${cluster?.meanEffect || 'N/A'}`);
-            titleLines.push(`Expr SD: ${cluster?.sdEffect || 'N/A'}`);
+            const _bl = this.results?.basis === 'expr' ? 'Expr' : 'GE';
+            titleLines.push(`${_bl} mean: ${cluster?.meanEffect || 'N/A'}`);
+            titleLines.push(`${_bl} SD: ${cluster?.sdEffect || 'N/A'}`);
             if (geneStat?.lfc !== undefined && geneStat?.lfc !== null) {
                 titleLines.push(`LFC: ${geneStat.lfc.toFixed(3)}`);
             }
@@ -10975,8 +11101,7 @@ class CorrelationExplorer {
         if (showUncorrelated && this.results.geneList) {
             this.results.geneList.forEach(gene => {
                 if (!geneSet.has(gene) && this.geneIndex.has(gene)) {
-                    const idx = this.geneIndex.get(gene);
-                    const fullData = this.getGeneData(idx);
+                    const fullData = this._analysisVector(gene);
                     const validData = Array.from(fullData).filter(v => !isNaN(v));
                     const meanEffect = validData.length > 0 ? (validData.reduce((a, b) => a + b, 0) / validData.length) : NaN;
                     const sd = validData.length > 0 ? Math.sqrt(validData.reduce((a, b) => a + (b - meanEffect) ** 2, 0) / validData.length) : NaN;
@@ -10987,8 +11112,9 @@ class CorrelationExplorer {
 
                     let titleLines = [gene];
                     if (isSynonym) titleLines.push(`(synonym of ${originalName})`);
-                    titleLines.push(`Expr mean: ${isNaN(meanEffect) ? 'N/A' : meanEffect.toFixed(2)}`);
-                    titleLines.push(`Expr SD: ${isNaN(sd) ? 'N/A' : sd.toFixed(2)}`);
+                    const _bl2 = this.results?.basis === 'expr' ? 'Expr' : 'GE';
+                    titleLines.push(`${_bl2} mean: ${isNaN(meanEffect) ? 'N/A' : meanEffect.toFixed(2)}`);
+                    titleLines.push(`${_bl2} SD: ${isNaN(sd) ? 'N/A' : sd.toFixed(2)}`);
                     // These nodes carry stats like any other input gene; the
                     // lookup was simply missing here, so hovering an
                     // uncorrelated gene showed no LFC/FDR.
@@ -11207,7 +11333,7 @@ class CorrelationExplorer {
             this._separateNetworkComponents();
             this._arrangeUncorrelatedGrid();
             this._recentreNetworkOnOrigin();
-            this.network.fit({ animation: false });
+            this._redrawThenFit();
             this._maybeShowDenseNetworkHint(nodeCount);
             // The settled, fitted layout is the reference Spread works from.
             // The solver ran with the spring and gravity of the slider's
@@ -11656,7 +11782,7 @@ class CorrelationExplorer {
         if (!this.network) return;
         // Recentre first: a node can sit outside because the view is off-centre
         // rather than because it is too zoomed in, and shrinking would not fix that.
-        try { this.network.fit({ animation: false }); } catch (e) {}
+        this._redrawThenFit();
         for (let i = 0; i < 40; i++) {
             if (!this._networkNodesOutOfView().length) return;
             const sc = this.network.getScale();
@@ -12314,15 +12440,25 @@ class CorrelationExplorer {
         if (hasCorrCol) {
             headerCells += `<th data-sort="hasCorrelation">Correlation</th>`;
         }
+        // Column labels follow the run's basis: a network correlated on
+        // expression shows expression means, and says so.
+        const isExprBasis = this.results.basis === 'expr';
+        const bLab = isExprBasis ? 'Expr' : 'GE';
+        const bMeanTitle = isExprBasis
+            ? 'Mean expression (log₂ TPM+1) across all cell lines. Higher means more mRNA.'
+            : 'Mean expression across all cell lines. Higher means more mRNA.';
+        const bSdTitle = isExprBasis
+            ? 'Spread of the expression across all cell lines. A high value means the level varies a lot between lines.'
+            : 'Spread of the expression across all cell lines. A high value means the dependency varies a lot between lines.';
         headerCells += `
-            <th data-sort="meanEffect" title="Mean expression across all cell lines. Higher means more mRNA.">Expr mean (all)</th>
-            <th data-sort="sdEffect" title="Spread of the expression across all cell lines. A high value means the dependency varies a lot between lines.">Expr SD (all)</th>
+            <th data-sort="meanEffect" title="${bMeanTitle}">${bLab} mean (all)</th>
+            <th data-sort="sdEffect" title="${bSdTitle}">${bLab} SD (all)</th>
         `;
 
         if (isFiltered) {
             headerCells += `
-            <th data-sort="meanEffectFiltered" title="Mean expression across the filtered cell lines only">Expr mean (filtered)</th>
-            <th data-sort="sdEffectFiltered" title="Spread of the expression across the filtered cell lines only">Expr SD (filtered)</th>
+            <th data-sort="meanEffectFiltered" title="Mean ${isExprBasis ? 'expression' : 'expression'} across the filtered cell lines only">${bLab} mean (filtered)</th>
+            <th data-sort="sdEffectFiltered" title="Spread of the ${isExprBasis ? 'expression' : 'expression'} across the filtered cell lines only">${bLab} SD (filtered)</th>
             `;
         }
 
@@ -12429,7 +12565,7 @@ class CorrelationExplorer {
                 missing.forEach(gene => {
                     let meanTxt = '-', sdTxt = '-';
                     if (this.geneIndex?.has(gene)) {
-                        const valid = Array.from(this.getGeneData(this.geneIndex.get(gene))).filter(v => !isNaN(v));
+                        const valid = Array.from(this._analysisVector(gene) || []).filter(v => !isNaN(v));
                         if (valid.length) {
                             const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
                             const sd = Math.sqrt(valid.reduce((a, b) => a + (b - mean) ** 2, 0) / valid.length);
@@ -12943,6 +13079,7 @@ Results:
         const meta = this._buildExportMetadata('network', {
             geneList: this.getGeneList(),
             mode: this.results?.mode,
+            analysisBasis: this.results?.basis || 'ge',
             cutoff: this.results?.cutoff,
             nCellLines: this.results?.nCellLines,
             networkSettings: this._captureNetworkSettings(),
@@ -13638,6 +13775,7 @@ ${filterText ? `<text x="${width / 2}" y="${headerH / 2}" dominant-baseline="mid
         const meta = this._buildExportMetadata('network', {
             geneList: this.getGeneList(),
             mode: this.results?.mode,
+            analysisBasis: this.results?.basis || 'ge',
             cutoff: this.results?.cutoff,
             nCellLines: this.results?.nCellLines,
             networkSettings: this._captureNetworkSettings(),
@@ -14268,7 +14406,40 @@ ${filterText ? `<text x="${width / 2}" y="${headerH / 2}" dominant-baseline="mid
         const main = comps[0];
         // Satellites wrap into rows beside the main component, so many small
         // pairs form a block rather than one very wide strip.
-        const maxRowW = Math.max(main.w, 500);
+        // How wide the satellite block may grow before it wraps to a new row.
+        // A fixed width packed them into a tall column: with several small
+        // components the picture ended up taller than wide, and since the
+        // panel is much wider than tall the fit was forced by height and drew
+        // everything small between two broad empty margins. Choose the row
+        // width that brings the finished picture closest to the panel's own
+        // proportions instead, so the fit is limited by both sides at once.
+        const host = document.getElementById('networkPlot');
+        const panelAR = (host?.clientWidth && host?.clientHeight)
+            ? host.clientWidth / host.clientHeight : 2;
+        const satellites = comps.slice(1);
+        const packedHeight = (rowW) => {
+            let h = 0, rw = 0, rh = 0;
+            for (const c of satellites) {
+                if (rw > 0 && rw + c.w > rowW) { h += rh + PAD; rw = 0; rh = 0; }
+                rw += c.w + PAD;
+                rh = Math.max(rh, c.h);
+            }
+            return h + rh;
+        };
+        let maxRowW = Math.max(main.w, 500);
+        if (satellites.length) {
+            const widest = Math.max(...satellites.map(c => c.w));
+            const total = satellites.reduce((a, c) => a + c.w + PAD, 0);
+            let best = null;
+            for (let w = widest; w <= total + widest; w += Math.max(60, widest / 4)) {
+                const blockH = packedHeight(w);
+                const totalW = main.w + PAD + w;
+                const totalH = Math.max(main.h, blockH);
+                const score = Math.abs(Math.log((totalW / totalH) / panelAR));
+                if (!best || score < best.score) best = { w, score };
+            }
+            if (best) maxRowW = best.w;
+        }
         let cursorX = main.maxX + PAD;
         let rowTop = main.minY;
         let rowH = 0;
@@ -14385,6 +14556,79 @@ ${filterText ? `<text x="${width / 2}" y="${headerH / 2}" dominant-baseline="mid
         }
     }
 
+    // Put the gating plot beside an exported figure. A figure filtered to a
+    // gate is only readable next to the plot the gate was drawn on, so the
+    // two travel together, side by side and at the same size, with a caption
+    // under the gate. (PowerPoint gets them as two separate pictures instead,
+    // so they can be moved apart on the slide.)
+    async _appendGatePlotToSvg(svgStr) {
+        const f = this._gateFilter;
+        if (!f?.image) return svgStr;
+        const doc = new DOMParser().parseFromString(svgStr, 'image/svg+xml');
+        if (doc.querySelector('parsererror')) return svgStr;
+        const svg = doc.documentElement;
+        const W = parseFloat(svg.getAttribute('width')) || 700;
+        const H = parseFloat(svg.getAttribute('height')) || 500;
+        const dims = await new Promise(res => {
+            const im = new Image();
+            im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight });
+            im.onerror = () => res(null);
+            im.src = f.image;
+        });
+        if (!dims) return svgStr;
+        const GAP = Math.round(W * 0.04), CAPTION = 30;
+        // The gate plot gets a box the same size as the chart and keeps its
+        // own proportions inside it, so the pair reads as two equal panels.
+        const boxW = W, boxH = H;
+        const sc = Math.min(boxW / dims.w, boxH / dims.h);
+        const imgW = dims.w * sc, imgH = dims.h * sc;
+        const newW = W + GAP + boxW;
+        const newH = Math.max(H, imgH + CAPTION);
+        svg.setAttribute('width', String(newW));
+        svg.setAttribute('height', String(newH));
+        const vb = (svg.getAttribute('viewBox') || `0 0 ${W} ${H}`).split(/\s+/).map(Number);
+        svg.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${vb[2] + (newW - W)} ${vb[3] + (newH - H)}`);
+        const NS = 'http://www.w3.org/2000/svg';
+        const mk = (tag, attrs, text) => {
+            const e = doc.createElementNS(NS, tag);
+            Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, String(v)));
+            if (text != null) e.textContent = text;
+            return e;
+        };
+        // Reading order follows the analysis: the gate that selected the
+        // population first, then the plot of what came out of it. The chart's
+        // own contents are shifted right to make room on the left.
+        const shift = boxW + GAP;
+        [...svg.childNodes].forEach(n => {
+            if (n.nodeType !== 1 || n.tagName === 'defs' || n.tagName === 'title' || n.tagName === 'desc') return;
+            const t = n.getAttribute('transform');
+            n.setAttribute('transform', `translate(${shift},0)${t ? ' ' + t : ''}`);
+        });
+        const x0 = (boxW - imgW) / 2;
+        const img = mk('image', { x: x0, y: 0, width: imgW, height: imgH, preserveAspectRatio: 'xMidYMid meet' });
+        img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', f.image);
+        img.setAttribute('href', f.image);
+        svg.appendChild(img);
+        svg.appendChild(mk('text', {
+            x: boxW / 2, y: imgH + 20, 'text-anchor': 'middle',
+            'font-family': 'Arial, sans-serif', 'font-size': 12, fill: '#4b5563'
+        }, `Gate ${f.gate} on ${f.genes}: the ${f.n} cell lines inside it are the plot at right.`));
+        return new XMLSerializer().serializeToString(svg);
+    }
+
+    // Fit AFTER a redraw. vis caches each label's absolute position when it
+    // draws, and fit() sizes the view from bounding boxes built on that
+    // cache. Any hand-placement (component separation, the parked grid, the
+    // recentre) moves nodes without redrawing, so the cached label boxes
+    // still sit at the old coordinates and the union comes out as much as
+    // the shift too wide -- fit then zooms far out and the network is drawn
+    // tiny in a mostly empty panel. One redraw refreshes the cache first.
+    _redrawThenFit() {
+        if (!this.network) return;
+        try { this.network.redraw(); } catch (e) {}
+        try { this.network.fit({ animation: false }); } catch (e) {}
+    }
+
     // Slide freshly dropped nodes off any parked (physics-less) gene they
     // landed on, pushing straight away from the collision. Runs only on
     // dragEnd, so hand placement is respected everywhere else.
@@ -14448,7 +14692,7 @@ ${filterText ? `<text x="${width / 2}" y="${headerH / 2}" dominant-baseline="mid
         } else {
             this._arrangeUncorrelatedGrid();
             this._recentreNetworkOnOrigin();
-            this.network.fit({ animation: false });
+            this._redrawThenFit();
         }
         // The switch moved nodes around, so the layout the Spread slider
         // scales from has to be re-recorded (as Run, Shuffle and Lock do).
@@ -14502,7 +14746,15 @@ ${filterText ? `<text x="${width / 2}" y="${headerH / 2}" dominant-baseline="mid
             if (Number.isFinite(minX)) {
                 const offX = Math.abs((minX + maxX) / 2 - c.clientWidth / 2);
                 const offY = Math.abs((minY + maxY) / 2 - c.clientHeight / 2);
-                if (offX > c.clientWidth * 0.14 || offY > c.clientHeight * 0.14) {
+                // The solver keeps pulling the picture together after the
+                // first fit (central gravity), so a network fitted at the
+                // right size slowly shrinks inside a frame nothing re-sizes.
+                // Treat "much smaller than the panel" like "wandered off
+                // centre": re-fit, unless we are already zoomed all the way in.
+                const fillW = (maxX - minX) / c.clientWidth;
+                const fillH = (maxY - minY) / c.clientHeight;
+                const shrunk = fillW < 0.62 && fillH < 0.62 && this.network.getScale() < 0.95;
+                if (offX > c.clientWidth * 0.14 || offY > c.clientHeight * 0.14 || shrunk) {
                     try { this.network.fit({ animation: false }); } catch (e) {}
                 }
             }
@@ -14535,7 +14787,7 @@ ${filterText ? `<text x="${width / 2}" y="${headerH / 2}" dominant-baseline="mid
             this._separateNetworkComponents();
             this._arrangeUncorrelatedGrid();
             this._recentreNetworkOnOrigin();
-            this.network.fit({ animation: false });
+            this._redrawThenFit();
             // The solver settled under the physics of the current Spread
             // setting, so the freshly fitted layout IS that setting's
             // picture: record it as the baseline at the slider's own value
@@ -15589,6 +15841,16 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     }
 
     openInspectByGenes(gene1, gene2) {
+        // The scatter opens on the analysis's own basis, so the r on an edge
+        // and the r in the plot describe the same numbers. The axis selectors
+        // stay live for switching afterwards.
+        if (this.results?.basis) {
+            const b = this.results.basis === 'expr' ? 'expr' : 'ge';
+            const xSel = document.getElementById('xAxisDataType');
+            const ySel = document.getElementById('yAxisDataType');
+            if (xSel) xSel.value = b;
+            if (ySel) ySel.value = b;
+        }
         // Find the correlation entry by gene names. If it isn't in the current
         // results (e.g. a discovered-gene edge, or after a filtered re-run via
         // "best filter"), fall back to a minimal entry so the scatter still
@@ -15902,7 +16164,9 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         // clicking a new edge produced a GE vs expression plot unasked. Coming
         // back to the same pair (from a gene popout, say) keeps its setup.
         const pairKey = `${c?.gene1 || ''}::${c?.gene2 || ''}`;
-        if (this._lastInspectPair && this._lastInspectPair !== pairKey) {
+        const keep = this._keepInspectSettings;
+        this._keepInspectSettings = false;
+        if (!keep && this._lastInspectPair && this._lastInspectPair !== pairKey) {
             this._resetInspectSettings();
         }
         this._lastInspectPair = pairKey;
@@ -16049,10 +16313,13 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
 
         // Reset color-by dropdown. "By subtype" is always offered now: it was
         // hidden unless a tissue was selected because 70+ colors is unreadable,
-        // which the group picker solves instead.
-        document.getElementById('colorByCategory').value = '';
-        const pickedReset = document.getElementById('colorByPicked');
-        if (pickedReset) pickedReset.value = '';
+        // which the group picker solves instead. Editing the current view from
+        // inside the popout keeps the colouring, like the other settings.
+        if (!keep) {
+            document.getElementById('colorByCategory').value = '';
+            const pickedReset = document.getElementById('colorByPicked');
+            if (pickedReset) pickedReset.value = '';
+        }
         this._syncColorByGroupBtn();
         this._styleActiveFilters();
 
@@ -16214,6 +16481,8 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         const caution = document.getElementById('mutationCautionScatter');
         if (caution) caution.style.display = 'none';
         this._scatterHighlight = null;
+        this._gateFilter = null;
+        this._syncGateFilterUI?.();
         this._syncColorByGroupBtn?.();
         this._styleActiveFilters?.();
         this.clearGEGates?.();
@@ -16710,6 +16979,9 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         // The scatter's own grid picks are cohort filters too, so the title
         // names them alongside the rest.
         (this._scatterGridActive || []).forEach(f => filterParts.push(`${f.gene} ${f.state === 'mut' ? 'Mut' : 'WT'}`));
+        // A gate used as a filter is a cohort filter like the rest, so the
+        // line above the plot names it too.
+        if (this._gateFilter) filterParts.push(`Gate ${this._gateFilter.gate} (${this._gateFilter.n} cell lines)`);
         const filterDesc = filterParts.length > 0 ? filterParts.join(' | ') : '';
 
         // Show/hide plot and table based on mode
@@ -16859,16 +17131,11 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 marker: { color: '#dc2626', size: 10, opacity: 0.8 },
                 name: `2+ partners (n=${t2.length}, ${t2Pct}%)`
             });
-        } else if (colorByCategory === 'tissue' || colorByCategory === 'subtype') {
-            // Color by tissue or subtype
+        } else if (colorByCategory === 'tissue' || colorByCategory === 'subtype' || colorByCategory === 'disease') {
+            // Color by tissue, subtype or disease
             const categoryMap = {};
             filteredData.forEach(d => {
-                let cat;
-                if (colorByCategory === 'subtype') {
-                    cat = this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown';
-                } else {
-                    cat = d.lineage || 'Unknown';
-                }
+                const cat = this._colorByGroup(d, colorByCategory);
                 if (!categoryMap[cat]) categoryMap[cat] = [];
                 categoryMap[cat].push(d);
             });
@@ -17514,12 +17781,10 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
 
         // Build category map for color-by mode (shared across panels)
         let categoryOrder = null;
-        if (colorByCategory === 'tissue' || colorByCategory === 'subtype') {
+        if (colorByCategory === 'tissue' || colorByCategory === 'subtype' || colorByCategory === 'disease') {
             const catCounts = {};
             filteredData.forEach(d => {
-                const cat = colorByCategory === 'subtype'
-                    ? (this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown')
-                    : (d.lineage || 'Unknown');
+                const cat = this._colorByGroup(d, colorByCategory);
                 catCounts[cat] = (catCounts[cat] || 0) + 1;
             });
             categoryOrder = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
@@ -17530,9 +17795,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             this._colorByPickedActive = !!pickedSet;
         }
 
-        const rawCategory = (d) => (colorByCategory === 'subtype'
-            ? (this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown')
-            : (d.lineage || 'Unknown'));
+        const rawCategory = (d) => this._colorByGroup(d, colorByCategory);
         // Anything outside the picked groups is folded into one muted series.
         const getCategory = (d) => {
             const c = rawCategory(d);
@@ -19152,6 +19415,12 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         }
 
         // Re-open inspect with the new genes
+        // Changing the genes or the GE / Expr / CN measure from inside the
+        // popout is a deliberate edit of the current view, so the filters,
+        // colouring and axis measures the user has set stay put. (The reset
+        // exists for arriving at a different pair from the network, where
+        // inheriting the previous pair's setup was surprising.)
+        this._keepInspectSettings = true;
         this.openInspect({ gene1, gene2, correlation: null });
 
         // Update title
@@ -19514,6 +19783,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 document.getElementById('gateStatus').textContent = `Gate A: ${cells.length} cell lines. Now set Gate B.`;
                 document.getElementById('gateStatus').style.color = '#5d9239';
                 document.getElementById('clearGatesBtn').style.display = '';
+                this._syncGateFilterUI();
             } else {
                 // If there was already a Gate B shape, remove it
                 if (this._gateBShapeIndex != null && this._gateBShapeIndex !== currentShapes.length - 1) {
@@ -19539,6 +19809,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 document.getElementById('setGateBBtn').textContent = `Gate B (n=${cells.length})`;
                 document.getElementById('setGateBBtn').style.opacity = '0.7';
                 document.getElementById('compareGatesBtn').style.display = '';
+                this._syncGateFilterUI();
                 document.getElementById('gateStatus').textContent = `Gate A: ${this._gateA?.length || 0}, Gate B: ${cells.length}. Click Compare.`;
                 document.getElementById('gateStatus').style.color = '#5d9239';
             }
@@ -19644,7 +19915,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         return { x: (shape.x0 + shape.x1) / 2, y: Math.max(shape.y0, shape.y1) };
     }
 
-    clearGates() {
+    clearGates(opts = {}) {
         this._gateA = null;
         this._gateB = null;
         this._gateSelecting = null;
@@ -19659,6 +19930,12 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         if (el('setGateBBtn')) { el('setGateBBtn').textContent = 'Set Gate B'; el('setGateBBtn').style.opacity = '1'; el('setGateBBtn').disabled = true; }
         if (el('compareGatesBtn')) el('compareGatesBtn').style.display = 'none';
         if (el('clearGatesBtn')) el('clearGatesBtn').style.display = 'none';
+        // The drawn shapes and a filter made from one are separate things:
+        // erasing the shapes (which every re-render does) must not drop the
+        // filter, or changing a gene would silently un-gate the plot. The
+        // filter goes via clearGateFilter, or with the rest of the settings
+        // when a genuinely different pair is opened.
+        if (el('gateAsFilterBtn')) el('gateAsFilterBtn').style.display = 'none';
         if (el('gateStatus')) { el('gateStatus').textContent = 'Draw a rectangle or lasso on the plot to define gates'; el('gateStatus').style.color = '#6b7280'; }
         if (el('gateComparePanel')) el('gateComparePanel').style.display = 'none';
 
@@ -19756,6 +20033,178 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         Plotly.relayout('scatterPlot', { annotations: [...existingAnnotations, ...gateAnnotations] });
     }
 
+    // The group a cell line belongs to for "Color by", at whichever level of
+    // the cancer classification is selected. Tissue -> Oncotree lineage,
+    // subtype -> primary disease, disease -> the exact Oncotree entity; each
+    // falls back to the coarser level when the finer one is blank.
+    _colorByGroup(d, mode) {
+        const id = d.cellLineId;
+        const lineage = d.lineage || 'Unknown';
+        if (mode === 'disease') {
+            return this.cellLineMetadata?.oncotreeSubtype?.[id]
+                || this.cellLineMetadata?.primaryDisease?.[id] || lineage;
+        }
+        if (mode === 'subtype') {
+            return this.cellLineMetadata?.primaryDisease?.[id] || lineage;
+        }
+        return lineage;
+    }
+
+    // A small cue that something appeared further down, with a click that
+    // takes the user there. Used when a result lands below the fold.
+    _pointToPanel(panelId, label) {
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        const scrollTo = () => panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const rect = panel.getBoundingClientRect();
+        // Already in view: nothing to point at.
+        if (rect.top >= 0 && rect.top < window.innerHeight * 0.9) return;
+        document.getElementById('panelPointer')?.remove();
+        const host = panel.closest('.modal') || document.body;
+        const cue = document.createElement('button');
+        cue.id = 'panelPointer';
+        cue.type = 'button';
+        cue.innerHTML = `${this.esc(label)} <span style="font-size:14px; line-height:1;">&#8595;</span>`;
+        cue.style.cssText = 'position:absolute; left:50%; transform:translateX(-50%); bottom:64px; z-index:30; display:inline-flex; align-items:center; gap:6px; background:#6ba544; color:#fff; border:none; border-radius:14px; padding:5px 14px; font-size:11px; font-weight:600; box-shadow:0 3px 10px rgba(0,0,0,0.2); cursor:pointer;';
+        cue.onclick = () => { scrollTo(); cue.remove(); };
+        if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+        host.appendChild(cue);
+        // It is a hint, not a dialog: it goes once the user scrolls there or
+        // after a few seconds either way.
+        const done = () => { cue.remove(); window.removeEventListener('scroll', onScroll, true); };
+        const onScroll = () => {
+            const r = panel.getBoundingClientRect();
+            if (r.top < window.innerHeight * 0.9) done();
+        };
+        window.addEventListener('scroll', onScroll, true);
+        setTimeout(done, 8000);
+    }
+
+    // A gate can be used two ways: compared against the other gate (the
+    // existing analysis), or carried forward as a filter the way a FACS gate
+    // hands a population to the next plot. This is the second: the cell lines
+    // inside the gate become the cohort, every other filter still applies on
+    // top, and the plot the gate was drawn on is kept underneath so the
+    // figure still shows where the population came from.
+    chooseGateAsFilter(ev) {
+        const haveA = !!this._gateA?.length, haveB = !!this._gateB?.length;
+        if (!haveA && !haveB) return;
+        if (haveA !== haveB) { this.applyGateAsFilter(haveA ? 'A' : 'B'); return; }
+        document.getElementById('gateFilterMenu')?.remove();
+        const menu = document.createElement('div');
+        menu.id = 'gateFilterMenu';
+        menu.style.cssText = 'position:absolute; z-index:10002; background:#fff; border:1px solid #d1d5db; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:4px; display:flex; flex-direction:column; gap:2px;';
+        [['A', this._gateA.length, '#2563eb'], ['B', this._gateB.length, '#dc2626']].forEach(([g, n, col]) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = `Gate ${g} (${n} cell lines)`;
+            b.style.cssText = `border:none; background:none; text-align:left; padding:4px 12px; cursor:pointer; border-radius:4px; font-size:11px; white-space:nowrap; color:${col}; font-weight:600;`;
+            b.onmouseenter = () => { b.style.background = '#f3f4f6'; };
+            b.onmouseleave = () => { b.style.background = 'none'; };
+            b.onclick = () => { menu.remove(); this.applyGateAsFilter(g); };
+            menu.appendChild(b);
+        });
+        const r = (ev?.currentTarget || document.getElementById('gateAsFilterBtn')).getBoundingClientRect();
+        menu.style.left = (r.left + window.scrollX) + 'px';
+        menu.style.top = (r.bottom + window.scrollY + 4) + 'px';
+        document.body.appendChild(menu);
+        setTimeout(() => {
+            const dismiss = (e2) => { if (menu.contains(e2.target)) return; menu.remove(); document.removeEventListener('click', dismiss); };
+            document.addEventListener('click', dismiss);
+        }, 0);
+    }
+
+    async applyGateAsFilter(which) {
+        const gate = which === 'B' ? this._gateB : this._gateA;
+        if (!gate?.length) return;
+        const ids = new Set(gate.map(d => d.cellLineId));
+        // Snapshot the plot as it looks right now, gate outline and all, before
+        // the filter redraws it.
+        let img = null;
+        try {
+            const el = document.getElementById('scatterPlot');
+            // Capture at the same dimensions the image export renders at, so
+            // the two panels come out exactly the same size side by side.
+            const w = el._fullLayout?.width || el.layout?.width || el.offsetWidth || 700;
+            const h = el._fullLayout?.height || el.layout?.height || el.offsetHeight || 500;
+            img = await Plotly.toImage(el, { format: 'png', width: w, height: h, scale: 2 });
+        } catch (e) { img = null; }
+        this._gateFilter = {
+            gate: which,
+            ids,
+            n: ids.size,
+            image: img,
+            genes: `${this.currentInspect?.gene1 || ''} vs ${this.currentInspect?.gene2 || ''}`
+        };
+        // Reuse the custom cell-line filter: one cohort chain, no new layer.
+        this._customCellLineFilter = ids;
+        const cnt = document.getElementById('customCLFilterCount');
+        if (cnt) cnt.textContent = `${ids.size} from gate ${which}`;
+        this.clearGates({ keepFilter: true });
+        this._syncGateFilterUI();
+        this._renderFilterChips?.('scatter');
+        this.updateInspectPlot();
+        this.showCopyNotification?.(`Filtered to the ${ids.size} cell lines inside gate ${which}`);
+    }
+
+    clearGateFilter() {
+        if (!this._gateFilter) return;
+        this._gateFilter = null;
+        this._customCellLineFilter = null;
+        const cnt = document.getElementById('customCLFilterCount');
+        if (cnt) cnt.textContent = '';
+        this._syncGateFilterUI();
+        this._renderFilterChips?.('scatter');
+        this.updateInspectPlot();
+    }
+
+    _syncGateFilterUI() {
+        const f = this._gateFilter;
+        const panel = document.getElementById('gateFilterPanel');
+        const clearBtn = document.getElementById('clearGateFilterBtn');
+        const applyBtn = document.getElementById('gateAsFilterBtn');
+        if (applyBtn) applyBtn.style.display = (!f && (this._gateA?.length || this._gateB?.length)) ? '' : 'none';
+        if (clearBtn) clearBtn.style.display = f ? '' : 'none';
+        if (!panel) return;
+        if (!f) { panel.style.display = 'none'; return; }
+        panel.style.display = '';
+        const t = document.getElementById('gateFilterTitle');
+        if (t) t.textContent = `Gating plot: gate ${f.gate}, ${f.n} cell lines`;
+        const im = document.getElementById('gateFilterImage');
+        if (im) {
+            if (f.image) {
+                im.src = f.image;
+                im.style.display = '';
+                // Same size as the plot above it, so the two read as a pair
+                // rather than a figure and a poster.
+                const w = document.getElementById('scatterPlot')?.offsetWidth;
+                im.style.width = w ? `${w}px` : '';
+                im.style.maxWidth = '100%';
+            } else im.style.display = 'none';
+        }
+        const cap = document.getElementById('gateFilterCaption');
+        if (cap) cap.textContent = `Gate ${f.gate} drawn on ${f.genes}; the ${f.n} cell lines inside it are the cohort of the plot above.`;
+    }
+
+    // Share of each group in gate A vs gate B, sorted by the biggest
+    // difference. One implementation for the tissue / subtype / disease
+    // tables, which differ only in how a cell line is grouped.
+    _gateEnrichment(gateA, gateB, keyOf) {
+        const count = (rows) => {
+            const m = {};
+            rows.forEach(d => { const k = keyOf(d); m[k] = (m[k] || 0) + 1; });
+            return m;
+        };
+        const a = count(gateA), b = count(gateB);
+        return [...new Set([...Object.keys(a), ...Object.keys(b)])].sort().map(k => ({
+            tissue: k,
+            nA: a[k] || 0,
+            pctA: (a[k] || 0) / (gateA.length || 1) * 100,
+            nB: b[k] || 0,
+            pctB: (b[k] || 0) / (gateB.length || 1) * 100
+        })).sort((x, y) => Math.abs(y.pctA - y.pctB) - Math.abs(x.pctA - x.pctB));
+    }
+
     async compareGates() {
         if (!this._gateA?.length || !this._gateB?.length) return;
 
@@ -19768,39 +20217,15 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         document.getElementById('gateASummary').textContent = `${gateA.length} cell lines`;
         document.getElementById('gateBSummary').textContent = `${gateB.length} cell lines`;
 
-        // 1. Tissue enrichment
-        const tissueA = {}, tissueB = {};
-        gateA.forEach(d => { tissueA[d.lineage || 'Unknown'] = (tissueA[d.lineage || 'Unknown'] || 0) + 1; });
-        gateB.forEach(d => { tissueB[d.lineage || 'Unknown'] = (tissueB[d.lineage || 'Unknown'] || 0) + 1; });
-        const allTissues = [...new Set([...Object.keys(tissueA), ...Object.keys(tissueB)])].sort();
-        const tissueStats = allTissues.map(t => ({
-            tissue: t,
-            nA: tissueA[t] || 0,
-            pctA: ((tissueA[t] || 0) / gateA.length * 100),
-            nB: tissueB[t] || 0,
-            pctB: ((tissueB[t] || 0) / gateB.length * 100)
-        }));
-        tissueStats.sort((a, b) => Math.abs(b.pctA - b.pctB) - Math.abs(a.pctA - a.pctB));
-
-        // 1b. Subtissue (primaryDisease) enrichment
-        const subtissueA = {}, subtissueB = {};
-        gateA.forEach(d => {
-            const st = this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown';
-            subtissueA[st] = (subtissueA[st] || 0) + 1;
-        });
-        gateB.forEach(d => {
-            const st = this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown';
-            subtissueB[st] = (subtissueB[st] || 0) + 1;
-        });
-        const allSubtissues = [...new Set([...Object.keys(subtissueA), ...Object.keys(subtissueB)])].sort();
-        const subtissueStats = allSubtissues.map(st => ({
-            tissue: st,
-            nA: subtissueA[st] || 0,
-            pctA: ((subtissueA[st] || 0) / gateA.length * 100),
-            nB: subtissueB[st] || 0,
-            pctB: ((subtissueB[st] || 0) / gateB.length * 100)
-        }));
-        subtissueStats.sort((a, b) => Math.abs(b.pctA - b.pctB) - Math.abs(a.pctA - a.pctB));
+        // 1. Where the two gates' cell lines come from, at all three levels
+        // of the cancer classification (the same tissue / subtype / disease
+        // ladder the cohort filters use).
+        const tissueStats = this._gateEnrichment(gateA, gateB, d => d.lineage || 'Unknown');
+        const subtissueStats = this._gateEnrichment(gateA, gateB,
+            d => this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown');
+        const diseaseStats = this._gateEnrichment(gateA, gateB,
+            d => this.cellLineMetadata?.oncotreeSubtype?.[d.cellLineId]
+                || this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || d.lineage || 'Unknown');
 
         // 2. Mutation enrichment (hotspot + damaging mutations)
         const mutStats = [];
@@ -19921,7 +20346,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             diffExpr.sort((a, b) => a.pValue - b.pValue);
         }
 
-        this._gateCompareResults = { tissueStats, subtissueStats, mutStats, diffGE, diffExpr };
+        this._gateCompareResults = { tissueStats, subtissueStats, diseaseStats, mutStats, diffGE, diffExpr };
         this._gateSortCol = null;
         this._gateSortAsc = true;
 
@@ -19931,6 +20356,9 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         // Show panel
         document.getElementById('gateComparePanel').style.display = '';
         document.getElementById('gateCompareTitle').textContent = `Gate A (${gateA.length}) vs Gate B (${gateB.length})`;
+        // The results land below the plot, which on a short screen is out of
+        // sight: point at them rather than leaving the button looking dead.
+        this._pointToPanel('gateComparePanel', 'Comparison ready below');
 
         // Show first tab
         document.querySelectorAll('.gate-tab').forEach(t => t.classList.remove('active'));
@@ -19986,16 +20414,21 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             });
             html += '</tbody></table>';
 
-            // Subtissue section
-            if (r.subtissueStats && r.subtissueStats.length > 0) {
-                const subData = [...r.subtissueStats];
+            // Finer levels of the same classification, one table each.
+            [
+                { key: 'subtissueStats', title: 'Subtype (Primary Disease)', col: 'Subtype' },
+                { key: 'diseaseStats', title: 'Disease (Oncotree entity)', col: 'Disease' }
+            ].forEach(sec => {
+                const rows = r[sec.key];
+                if (!rows || !rows.length) return;
+                const subData = [...rows];
                 subData.sort((a, b) => Math.abs(b.pctA - b.pctB) - Math.abs(a.pctA - a.pctB));
                 html += `<div style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:8px;">
-                    <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#374151;">Subtissue (Primary Disease)</div>
+                    <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#374151;">${sec.title}</div>
                     <table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;">
                     <colgroup><col style="width:35%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup>
                     <thead><tr style="background:#f3f4f6;">
-                        <th style="padding:5px;text-align:left;">Subtype</th>
+                        <th style="padding:5px;text-align:left;">${sec.col}</th>
                         <th style="padding:5px;text-align:center;">Gate A</th>
                         <th style="padding:5px;text-align:center;">%A</th>
                         <th style="padding:5px;text-align:center;">Gate B</th>
@@ -20015,7 +20448,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                     </tr>`;
                 });
                 html += '</tbody></table></div>';
-            }
+            });
             container.innerHTML = html;
 
         } else if (tab === 'mutations') {
@@ -21751,6 +22184,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             format,
             filename: `scatter_${this.currentInspect.gene1}_vs_${this.currentInspect.gene2}${suffix}`,
             popout: { elId: 'inspectModalInner', fileStem: 'correlate_correlation' },
+            withGatePlot: true,
             meta: this._buildPopoutMeta('scatter'),
             // Plotly's legend has a clipPath that crops long entries (gene
             // symbols can exceed the assumed Open-Sans width). Remove the
@@ -22284,6 +22718,8 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     _resetForRestore() {
         // Reset parameter filters so they don't bleed into restored view
         const resetEl = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        const basisGe = document.querySelector('input[name="analysisBasis"][value="ge"]');
+        if (basisGe) basisGe.checked = true;
         resetEl('lineageFilter', '');
         resetEl('subLineageFilter', '');
         resetEl('paramHotspotGene', '');
@@ -22378,6 +22814,10 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 // Setting .checked fires no change event, so bring the Options
                 // buttons and box 1 in line with the restored mode by hand.
                 this._syncAnalysisModeButtons();
+            }
+            if (meta.analysisBasis) {
+                const b = document.querySelector(`input[name="analysisBasis"][value="${meta.analysisBasis}"]`);
+                if (b) b.checked = true;
             }
             if (meta.cutoff != null) {
                 document.getElementById('correlationCutoff').value = meta.cutoff;
@@ -25887,7 +26327,9 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     }
 
     openGeneEffectFromNetwork(gene) {
-        this.openGeneEffectModal(gene, 'tissue', { dataType: 'ge' });
+        // Open on the analysis's own basis, so a node in an expression
+        // network drills into the expression distribution.
+        this.openGeneEffectModal(gene, 'tissue', { dataType: this.results?.basis === 'expr' ? 'expr' : 'ge' });
         this._applyParamFiltersToGEModal();
     }
 
@@ -26648,7 +27090,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     // print size and DPI for raster output. Follows feedback_plotly_exports.md:
     // SVG from Plotly → _expandSvgToContent → rasterise at target DPI.
     async _exportPlotly(plotEl, opts) {
-        const { w, h, format, filename, meta, postProcess, popout } = opts || {};
+        const { w, h, format, filename, meta, postProcess, popout, withGatePlot } = opts || {};
 
         // Ask user for publication dimensions + DPI. When the chart sits in a
         // popout, the same dialog also offers capturing the whole panel, which
@@ -26709,7 +27151,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         }
 
         const expanded = this._expandSvgToContent(svgStr, w, h);
-        return this._exportSvgString(expanded.svg, dlg, { filename, meta, widthPx: w, heightPx: h });
+        return this._exportSvgString(expanded.svg, dlg, { filename, meta, widthPx: w, heightPx: h, withGatePlot });
     }
 
     // Takes a finished SVG string and saves it in whatever format the export
@@ -26723,6 +27165,17 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         let outSvg = svgIn;
         // The dialog's settings-file checkbox.
         const metaJson = (meta && dlg.sidecar !== false) ? JSON.stringify(meta) : null;
+
+        // A gate-filtered scatter carries its gating plot into the file. Flat
+        // formats get the two panels composed side by side in one image;
+        // PowerPoint gets them as two separate pictures instead (below), so
+        // they can be moved apart on the slide.
+        const gateSecond = (this._gateFilter?.image && opts?.withGatePlot)
+            ? { png: this._gateFilter.image, name: `Gating plot (gate ${this._gateFilter.gate})` }
+            : null;
+        if (gateSecond && fmt !== 'pptx') {
+            outSvg = await this._appendGatePlotToSvg(outSvg);
+        }
 
         // White background for vector outputs (PDF / PPTX embed the SVG directly,
         // so they need the rect baked in, the raster path paints white on canvas
@@ -26800,7 +27253,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 const outH = (trimmed !== canvas && trimmed.width)
                     ? Math.round(widthCm * (trimmed.height / trimmed.width) * 100) / 100
                     : heightCm;
-                await this._downloadCanvasAs(trimmed, fmt, filename, { dpi, widthCm, heightCm: outH, metaJson, svg: outSvg, widthPx: w, heightPx: h });
+                await this._downloadCanvasAs(trimmed, fmt, filename, { dpi, widthCm, heightCm: outH, metaJson, svg: outSvg, widthPx: w, heightPx: h, second: gateSecond });
                 resolve();
             };
             img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(); };
@@ -27024,7 +27477,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     }
 
     async _downloadCanvasAs(canvas, fmt, filename, opts = {}) {
-        const { dpi = 300, widthCm, heightCm, metaJson, svg, skipSidecar } = opts;
+        const { dpi = 300, widthCm, heightCm, metaJson, svg, skipSidecar, second } = opts;
         // Date and time on every exported file, so a folder of them can be told
         // apart later. Added here rather than at each call site.
         if (filename && !/_\d{4}-\d{2}-\d{2}_\d{4}$/.test(filename)) filename = `${filename}_${exportStamp()}`;
@@ -27047,7 +27500,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
                 }
                 save(new Blob([this._canvasToPdf(canvas, widthCm, heightCm)], { type: 'application/pdf' }), 'pdf'); return;
             }
-            if (fmt === 'pptx') { save(await this._canvasToPptx(canvas, widthCm, heightCm, svg), 'pptx'); return; }
+            if (fmt === 'pptx') { save(await this._canvasToPptx(canvas, widthCm, heightCm, svg, second), 'pptx'); return; }
         } catch (e) {
             console.warn(`${fmt} export failed, falling back to PNG:`, e);
         }
@@ -27204,7 +27657,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     // deck (13.333in × 7.5in); the figure is scaled to fit with a small margin
     // and centered, so the export drops straight into a normal presentation
     // instead of producing an oddly-sized slide cropped to the figure.
-    async _canvasToPptx(canvas, widthCm, heightCm, svgStr) {
+    async _canvasToPptx(canvas, widthCm, heightCm, svgStr, second) {
         if (typeof JSZip === 'undefined') throw new Error('JSZip unavailable');
         const EMU = 360000;                       // EMU per cm
         // Standard PowerPoint widescreen slide (16:9).
@@ -27215,12 +27668,20 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         // to fill the slide is fine.
         const figW = (widthCm || 10) * EMU;
         const figH = (heightCm || 10) * EMU;
-        const availW = cx * 0.88, availH = cy * 0.88;
+        let availW = cx * 0.88;
+        const availH = cy * 0.88;
+        // A gating plot rides along as its OWN picture, so the two can be
+        // pulled apart on the slide. Each gets half the width, and both are
+        // scaled by the same factor so they stay the same size.
+        const GAPX = second ? Math.round(cx * 0.03) : 0;
+        if (second) availW = (availW - GAPX) / 2;
         const scale = Math.min(availW / figW, availH / figH);
         const picW = Math.round(figW * scale);
         const picH = Math.round(figH * scale);
-        const offX = Math.round((cx - picW) / 2);
+        const totalW = second ? picW * 2 + GAPX : picW;
+        const offX = Math.round((cx - totalW) / 2);
         const offY = Math.round((cy - picH) / 2);
+        const off2X = offX + picW + GAPX;
         const pngB64 = canvas.toDataURL('image/png').split(',')[1];
         // PowerPoint 2016+ renders an embedded SVG as true vector, keeping the
         // PNG only as a compatibility fallback. We embed both when we have the
@@ -27252,12 +27713,21 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         const blip = useSvg
             ? `<a:blip r:embed="rId1"><a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId3"/></a:ext></a:extLst></a:blip>`
             : `<a:blip r:embed="rId1"/>`;
+        const pic = (id, name, blipXml, x, y, w, h) =>
+            `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="${name}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill>${blipXml}<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+        // Same reading order as the flat export: the gate first, then the
+        // plot it produced.
+        const pics = second
+            ? pic(3, second.name || 'Gating plot', `<a:blip r:embed="rId4"/>`, offX, offY, picW, picH)
+                + pic(2, 'Figure', blip, off2X, offY, picW, picH)
+            : pic(2, 'Figure', blip, offX, offY, picW, picH);
         zip.file('ppt/slides/slide1.xml',
-            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="${REL}" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:pic><p:nvPicPr><p:cNvPr id="2" name="Figure"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill>${blip}<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${offX}" y="${offY}"/><a:ext cx="${picW}" cy="${picH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`);
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="${REL}" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${pics}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`);
         zip.file('ppt/slides/_rels/slide1.xml.rels',
-            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/image" Target="../media/image1.png"/><Relationship Id="rId2" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>${useSvg ? `<Relationship Id="rId3" Type="${REL}/image" Target="../media/image2.svg"/>` : ''}</Relationships>`);
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/image" Target="../media/image1.png"/><Relationship Id="rId2" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>${useSvg ? `<Relationship Id="rId3" Type="${REL}/image" Target="../media/image2.svg"/>` : ''}${second ? `<Relationship Id="rId4" Type="${REL}/image" Target="../media/image3.png"/>` : ''}</Relationships>`);
         zip.file('ppt/media/image1.png', pngB64, { base64: true });
         if (useSvg) zip.file('ppt/media/image2.svg', svgStr);
+        if (second) zip.file('ppt/media/image3.png', second.png.split(',')[1], { base64: true });
         return await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
     }
 
@@ -29215,7 +29685,9 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         if (sexLower && sexLower !== 'unknown') originParts.push(sexLower);
         if (stageLower && stageLower !== 'unknown') originParts.push(stageLower);
         const article = /^[aeiou]/i.test(String(lineageTxt)) ? 'an' : 'a';
-        let s1 = `<b>${this.esc(name)}</b> is ${article} ${this.esc(lineageTxt)} cell line`;
+        // The cancer type is the one phrase a reader scans this sentence for,
+        // so it is underlined rather than left in the run of text.
+        let s1 = `<b>${this.esc(name)}</b> is ${article} <span style="text-decoration:underline; text-decoration-color:#9ecf82; text-decoration-thickness:2px; text-underline-offset:2px;">${this.esc(lineageTxt)}</span> cell line`;
         if (lin && lin.toLowerCase() !== String(lineageTxt).toLowerCase()) s1 += ` <span style="color:#6b7280;">(${this.esc(lin)})</span>`;
         if (originParts.length) s1 += ` <span style="color:#6b7280;">(${originParts.join(', ')})</span>`;
         s1 += '.';
@@ -33852,7 +34324,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             // is the default. Subtypes run to 70+ and mean nothing all at once,
             // so those start empty and wait to be picked.
             const mode = document.getElementById('colorByCategory')?.value;
-            return mode === 'subtype' ? new Set() : null;
+            return (mode === 'subtype' || mode === 'disease') ? new Set() : null;
         }
         const want = new Set(raw.split('|').filter(Boolean));
         const usable = new Set(available.filter(c => want.has(c)));
@@ -33889,7 +34361,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
     showColorByGroupPicker() {
         document.getElementById('colorByGroupPanel')?.remove();
         const mode = document.getElementById('colorByCategory')?.value;
-        if (mode !== 'tissue' && mode !== 'subtype') return;
+        if (mode !== 'tissue' && mode !== 'subtype' && mode !== 'disease') return;
 
         // Only what is on the plot: offering a subtype that every active filter
         // has already excluded gives a choice that cannot change anything.
@@ -33899,20 +34371,19 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         // list can be shown as a tree. A flat list of 70+ subtypes gives no clue
         // which lineage any of them came from.
         const parentOf = {};
+        const nested = mode === 'subtype' || mode === 'disease';
         data.forEach(d => {
             const tissue = d.lineage || 'Unknown';
-            const cat = mode === 'subtype'
-                ? (this.cellLineMetadata?.primaryDisease?.[d.cellLineId] || tissue)
-                : tissue;
+            const cat = this._colorByGroup(d, mode);
             counts[cat] = (counts[cat] || 0) + 1;
-            if (mode === 'subtype') parentOf[cat] = tissue;
+            if (nested) parentOf[cat] = tissue;
         });
         const cats = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
         if (!cats.length) return;
 
         // Group the categories under their tissue, tissues ordered by size.
         const tree = [];
-        if (mode === 'subtype') {
+        if (nested) {
             const byTissue = {};
             cats.forEach(c => { (byTissue[parentOf[c]] = byTissue[parentOf[c]] || []).push(c); });
             Object.keys(byTissue)
@@ -33934,7 +34405,7 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         panel.className = 'select-proxy-panel';
         panel.style.width = '270px';
         panel.innerHTML =
-            `<div style="font-size:11px; font-weight:600; color:#374151; padding:2px 4px 6px;">Color only these ${mode === 'subtype' ? 'subtypes' : 'tissues'}</div>` +
+            `<div style="font-size:11px; font-weight:600; color:#374151; padding:2px 4px 6px;">Color only these ${mode === 'subtype' ? 'subtypes' : mode === 'disease' ? 'diseases' : 'tissues'}</div>` +
             `<input type="text" class="select-proxy-filter" id="colorByGroupFilter" placeholder="Filter...">` +
             `<div class="select-proxy-list" id="colorByGroupList" style="max-height:250px;">` +
             tree.map(grp => {
@@ -34049,13 +34520,14 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         const btn = document.getElementById('colorByGroupBtn');
         if (!btn) return;
         const mode = document.getElementById('colorByCategory')?.value;
-        const on = mode === 'tissue' || mode === 'subtype';
+        const on = mode === 'tissue' || mode === 'subtype' || mode === 'disease';
         btn.style.display = on ? '' : 'none';
         const raw = (document.getElementById('colorByPicked')?.value || '').trim();
         if (raw === '*') btn.textContent = 'Groups: all';
         else if (raw === 'none') btn.textContent = 'Groups: none';
         else if (raw) btn.textContent = `Groups: ${raw.split('|').filter(Boolean).length}`;
-        else btn.textContent = mode === 'subtype' ? 'Pick subtypes to color...' : 'Groups: all';
+        else btn.textContent = mode === 'subtype' ? 'Pick subtypes to color...'
+            : mode === 'disease' ? 'Pick diseases to color...' : 'Groups: all';
     }
 
     // Total plot width for the three-panel view. #plotWidth is sized for a
@@ -34506,6 +34978,38 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         });
     }
 
+    // Keep an anchored dropdown inside the window. It hangs from the left of
+    // its input, so an input near the right edge pushes a wide list off
+    // screen (the drug picker is 320px+ and its explanation was cut off).
+    // Align it to the input's right edge instead, then shift it further left
+    // if even that overflows.
+    _anchorDropdownInView(dd, margin = 10) {
+        if (!dd || dd.style.display === 'none') return;
+        // The limit is whichever comes first: the window, or an ancestor that
+        // clips its overflow (the Cell Line Browser card does, so it can never
+        // outgrow the window). Measuring against the window alone left the
+        // list clipped by the card instead.
+        let limitRight = window.innerWidth - margin;
+        let limitLeft = margin;
+        for (let n = dd.parentElement; n && n !== document.body; n = n.parentElement) {
+            const ov = getComputedStyle(n).overflow + getComputedStyle(n).overflowX;
+            if (/hidden|auto|scroll/.test(ov)) {
+                const b = n.getBoundingClientRect();
+                limitRight = Math.min(limitRight, b.right - 4);
+                limitLeft = Math.max(limitLeft, b.left + 4);
+                break;
+            }
+        }
+        dd.style.left = '0'; dd.style.right = 'auto'; dd.style.marginLeft = '';
+        dd.style.maxWidth = Math.max(220, Math.round(limitRight - limitLeft)) + 'px';
+        let r = dd.getBoundingClientRect();
+        if (r.right <= limitRight) return;
+        dd.style.left = 'auto'; dd.style.right = '0';
+        r = dd.getBoundingClientRect();
+        if (r.left >= limitLeft) return;
+        dd.style.marginLeft = Math.round(limitLeft - r.left) + 'px';
+    }
+
     // Clamp an open popup so it sits fully within the viewport. Switches it to
     // fixed positioning only when it would overflow, so nothing (e.g. the last
     // quick-filter rows) ends up below the fold on small screens. The element
@@ -34842,12 +35346,15 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             if (mode === 'drug') {
                 this._renderSortDrugDropdown(clbSortGene.value);
                 dd.style.display = 'block';
+                this._anchorDropdownInView(dd);
             } else if (mode === 'ge' || mode === 'expr') {
                 this._renderSortGeneDropdown(clbSortGene.value);
                 dd.style.display = 'block';
+                this._anchorDropdownInView(dd);
             } else if (mode === 'cn') {
                 this._renderSortCnDropdown(clbSortGene.value);
                 dd.style.display = 'block';
+                this._anchorDropdownInView(dd);
             } else {
                 dd.style.display = 'none';
             }
@@ -35127,6 +35634,8 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
         document.getElementById('clbExportMinimal').addEventListener('click', () => this.exportCellLineBrowserCSV('minimal'));
         document.getElementById('clbExportComprehensive')?.addEventListener('click', () => this.exportCellLineBrowserCSV('comprehensive'));
         document.getElementById('clbExportGenesBtn')?.addEventListener('click', () => this.exportCellLineBrowserGenesCSV());
+        document.getElementById('clbExportListBtn')?.addEventListener('click', () => this.exportCellLineListOnScreen('csv'));
+        document.getElementById('clbCopyListBtn')?.addEventListener('click', () => this.exportCellLineListOnScreen('copy'));
         document.getElementById('clbInspectGEBtn')?.addEventListener('click', () => this.inspectSelectionGE());
         document.getElementById('clbInspectCorrBtn')?.addEventListener('click', () => this.inspectSelectionCorrelations());
         document.getElementById('clbCopyNamesBtn')?.addEventListener('click', () => this.copyCellLineNames());
@@ -35893,6 +36402,24 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             </div>`;
         }
 
+        // Remember the value column exactly as the list shows it, so "Export
+        // list" and "Copy list" can hand over what is on screen rather than
+        // recomputing it from the sort settings.
+        this._clbListValues = geMap || countMap || null;
+        this._clbListValueHeader = geMap
+            ? `${geValueLabel === 'Expr' ? 'Expression (log2 TPM+1)' : 'Expression (CERES)'}${geGenesLabel ? ` for ${geGenesLabel}` : ''}`
+            : countMap
+                ? (mode === 'hotspot' ? 'Hotspot mutations'
+                    : mode === 'damaging' ? 'Damaging mutations'
+                    : mode === 'fusion' ? 'Fusions'
+                    : mode === 'ploidy' ? 'Ploidy'
+                    : mode === 'aneuploidy' ? 'Aneuploidy'
+                    : mode === 'cin' ? 'CIN'
+                    : mode === 'cn' ? `Copy number${geGenesLabel ? ` for ${geGenesLabel}` : ''}`
+                    : mode === 'drug' ? `Drug response AUC${geGenesLabel ? ` for ${geGenesLabel}` : ''}`
+                    : String(mode))
+                : '';
+
         const html = filtered.map(cl => {
             const name = this.getCellLineName(cl);
             const lin = this.getCellLineLineage(cl);
@@ -36273,6 +36800,13 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             }
         }
 
+        // A gate used as a filter reads like any other filter on the scatter.
+        if (ctxName === 'scatter' && this._gateFilter) {
+            parts.push(`<span class="clb-chip" data-chip="gatefilter" title="Only the cell lines inside gate ${this._gateFilter.gate}. Click to remove."`
+                + ` style="background:#f5f3ff;color:#5b21b6;padding:1px 6px;border-radius:10px;cursor:pointer;">`
+                + `Gate ${this._gateFilter.gate} (${this._gateFilter.n}) &#9662;</span>`);
+        }
+
         host.innerHTML = parts.join(' ');
         host.style.display = parts.length ? 'flex' : 'none';
         // The scatter's chip box is always on screen (no layout jumps); a
@@ -36302,6 +36836,13 @@ ${filterText ? `<text x="${this._netBannerPos ? this._netBannerPos.x : width / 2
             el.value = v;
             el.dispatchEvent(new Event('change', { bubbles: true }));
         };
+
+        if (kind === 'gatefilter') {
+            return this._simpleChipMenu(anchorEl, [{
+                label: 'Remove this filter', danger: true,
+                act: () => this.clearGateFilter(),
+            }], after);
+        }
 
         if (kind === 'tissue') {
             return this._simpleChipMenu(anchorEl, [{
@@ -41763,6 +42304,64 @@ ${clone.innerHTML}
             lines.push(row.join(','));
         }
         return lines.join('\n');
+    }
+
+    // The visible list, in its current sort order, with the value column the
+    // list is showing (expression, drug-response AUC, copy number, mutation
+    // counts...). `how` is 'csv' to download or 'copy' to put tab-separated
+    // text on the clipboard for pasting into Excel.
+    _cellLineListRows() {
+        const ids = this._clbVisibleCellLines || [];
+        const valueHeader = this._clbListValueHeader || '';
+        const values = this._clbListValues || null;
+        const header = ['Cell line', 'DepMap ID', 'Tissue', 'Subtype', 'Disease', 'Sex']
+            .concat(valueHeader && values ? [valueHeader] : []);
+        const rows = ids.map(cl => {
+            const row = [
+                this.getCellLineName(cl),
+                cl,
+                this.getCellLineLineage(cl) || '',
+                this.getCellLineSublineage(cl) || '',
+                this.cellLineMetadata?.oncotreeSubtype?.[cl] || '',
+                this.cellLineMetadata?.sex?.[cl] || ''
+            ];
+            if (valueHeader && values) {
+                const v = values.get ? values.get(cl) : values[cl];
+                // Trim binary-float noise (7.993333339691162) without losing
+                // precision anyone would use.
+                row.push(v == null || (typeof v === 'number' && isNaN(v)) ? ''
+                    : typeof v === 'number' && !Number.isInteger(v) ? String(Number(v.toFixed(4)))
+                    : String(v));
+            }
+            return row;
+        });
+        return { header, rows, valueHeader };
+    }
+
+    async exportCellLineListOnScreen(how) {
+        const { header, rows, valueHeader } = this._cellLineListRows();
+        if (!rows.length) {
+            this.showCopyNotification?.('No cell lines in the list to export.');
+            return;
+        }
+        if (how === 'copy') {
+            const tsv = [header.join('\t')].concat(rows.map(r => r.join('\t'))).join('\n');
+            try {
+                await navigator.clipboard.writeText(tsv);
+                this.showCopyNotification?.(`Copied ${rows.length} cell lines, paste into a spreadsheet`);
+            } catch (e) {
+                this.showCopyNotification?.('Could not reach the clipboard. Use the CSV button instead.');
+            }
+            return;
+        }
+        const esc = (v) => {
+            const t = String(v ?? '');
+            return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+        };
+        const lines = [header.map(esc).join(',')].concat(rows.map(r => r.map(esc).join(',')));
+        const tag = valueHeader ? '_' + valueHeader.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '') : '';
+        this.downloadFile(lines.join('\n'), csvName(`cell_lines${tag}`), 'text/csv');
+        this.showCopyNotification?.(`Exported ${rows.length} cell lines`);
     }
 
     async exportCellLineBrowserGenesCSV() {
